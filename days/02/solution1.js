@@ -31,72 +31,58 @@ const test = {
 };
 
 
-//const getLettersCount = (id) => {
-//    
-//    let hasTwoTimeLetter, hasThreeTimeLetter;
-//
-//    const checkedLetters = {};
-//
-//    let countOfLetter;
-//
-//    Array.prototype.forEach.call(
-//        id,
-//        (letter) => {
-//
-//            if (checkedLetters[letter]) {
-//                return;
-//            }
-//
-//            checkedLetters[letter] = true;
-//
-//            countOfLetter = id.split(letter).length - 1;
-//
-//            if (countOfLetter === 2 && !hasTwoTimeLetter) {
-//
-//                hasTwoTimeLetter = true;
-//
-//            } else if (countOfLetter === 3 && !hasThreeTimeLetter) {
-//            
-//                hasThreeTimeLetter = true;
-//
-//            }
-//
-//            //console.log(id, letter, countOfLetter, checkedLetters);
-//        }
-//    );
-//
-//    //console.log(hasTwoTimeLetter, hasThreeTimeLetter);
-//
-//    return {hasTwoTimeLetter, hasThreeTimeLetter};
-//};
+const getLettersCount = (id) => {
+    
+    let hasTwoTimeLetter, hasThreeTimeLetter;
 
-//const getIds = (ids) => {
-//    const lettersCount = ids.reduce(
-//        (acc, id) => {
-//
-//            //console.log(acc, id);
-//
-//            const {hasTwoTimeLetter, hasThreeTimeLetter} = getLettersCount(id);
-//
-//            if (hasTwoTimeLetter) {
-//                
-//                acc.twoTimeLettersCount += 1;
-//
-//            }
-//
-//            if (hasThreeTimeLetter) {
-//                
-//                acc.threeTimeLettersCount += 1;
-//
-//            }
-//
-//            return acc;
-//        },
-//        {twoTimeLettersCount: 0, threeTimeLettersCount: 0}
-//    );
-//
-//    return lettersCount.twoTimeLettersCount * lettersCount.threeTimeLettersCount;
-//};
+    const checkedLetters = {};
+
+    let countOfLetter;
+
+    Array.prototype.forEach.call(
+        id,
+        (letter) => {
+
+            if (checkedLetters[letter]) {
+                return;
+            }
+
+            checkedLetters[letter] = true;
+
+            countOfLetter = id.split(letter).length - 1;
+
+            if (countOfLetter === 2 && !hasTwoTimeLetter) {
+
+                hasTwoTimeLetter = true;
+
+            } else if (countOfLetter === 3 && !hasThreeTimeLetter) {
+            
+                hasThreeTimeLetter = true;
+
+            }
+
+            //console.log(id, letter, countOfLetter, checkedLetters);
+        }
+    );
+
+    //console.log(hasTwoTimeLetter, hasThreeTimeLetter);
+
+    return {hasTwoTimeLetter, hasThreeTimeLetter};
+};
+
+const getIds = (ids) =>
+    ids.filter(
+        (id) => {
+
+            const {hasTwoTimeLetter, hasThreeTimeLetter} = getLettersCount(id);
+
+            if (hasTwoTimeLetter || hasThreeTimeLetter) {
+
+                return true;
+
+            }
+        }
+    );
 
 const commonLettersIfOneDiff = (id_a, id_b) => {
 
@@ -426,7 +412,7 @@ cvzueihajyuomydkgsxfqplzwn
 cvzueihajytimrmkgsxfqplfwn
 cvzueihajytomrdkgzxfqpljwo`;
 
-const result = getChecksum(input.split(/\n/g));
+const result = getCommonLetters(getIds(input.split(/\n/g)));
 
-// 5166
-//console.log('result is', result);
+// cypueihajytordkgzxfqplbwn
+console.log('puzzle answer is', result);
