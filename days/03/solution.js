@@ -37,13 +37,21 @@ The four square inches marked with X are claimed by both 1 and 2. (Claim 3, whil
 
 If the Elves all proceed with their own plans, none of them will have enough fabric. How many square inches of fabric are within two or more claims?
 
+--- Part Two ---
+
+Amidst the chaos, you notice that exactly one claim doesn't overlap by even a single square inch of fabric with any other claim. If you can somehow draw attention to it, maybe the Elves will be able to make Santa's suit after all!
+
+For example, in the claims above, only claim 3 is intact after all claims are made.
+
+What is the ID of the only claim that doesn't overlap?
 */
 
 const test = {
     claims: `#1 @ 1,3: 4x4
 #2 @ 3,1: 4x4
 #3 @ 5,5: 2x2`,
-    referenceResult: 4
+    firstPuzzlePartReferenceResult: 4,
+    secondPuzzlePartReferenceResult: 3
 };
 
 const parseClaims = (str) =>
@@ -65,9 +73,8 @@ const parseClaims = (str) =>
             }
         );
 
-const getOverlappedSquareInches = (claims) => {
-    
-    const claimedSquareInches = claims.reduce(
+const getClaimedSquareInches = (claims) =>
+    claims.reduce(
         (acc, claim) => {
 
             let y = claim.y + 1;
@@ -79,20 +86,18 @@ const getOverlappedSquareInches = (claims) => {
                 //console.log(x, claim.x + 1 + claim.width)
 
                 for (; x < claim.x + 1 + claim.width; x += 1) {
-                
+
                     //console.log(x, y);
 
                     const hash = [x, y].join(',');
 
-                    if (acc[hash]) {
-                        
-                        acc[hash] += 1;
+                    if (!acc[hash]) {
 
-                    } else {
-                        
-                        acc[hash] = 1;
+                        acc[hash] = [];
 
                     }
+                        
+                    acc[hash].push(claim.id);
                 }
             }
 
@@ -103,18 +108,22 @@ const getOverlappedSquareInches = (claims) => {
         {}
     );
 
-    //console.log('csi', claimedSquareInches);
+const getOverlappedSquareInchesList = (claims) => {
+    
+    //console.log('csi', getClaimedSquareInches);
 
-    return Object.entries(claimedSquareInches)
+    return Object.entries(
+            getClaimedSquareInches(claims)
+        )
         .reduce(
-            (claimedSquareInchesCount, [claimedSquareInch, claimsCount]) => {
+            (claimedOverlappedSquareInchesList, [claimedSquareInch, claimsId]) => {
 
-                if (claimsCount > 1) {
+                if (claimsId.length > 1) {
 
-                    claimedSquareInchesCount.push(claimedSquareInch);
+                    claimedOverlappedSquareInchesList.push(claimedSquareInch);
                 }
 
-                return claimedSquareInchesCount;
+                return claimedOverlappedSquareInchesList;
             },
             []
         );
@@ -125,16 +134,16 @@ const getOverlappedSquareInchesCount = (overlappedSquareInches) => overlappedSqu
 //console.log(parseClaims(test.claims));
 
 //console.log(
-//    getOverlappedSquareInches(
+//    getOverlappedSquareInchesList(
 //        parseClaims(test.claims)
 //    )
 //);
 
 const testResults = getOverlappedSquareInchesCount(
-    getOverlappedSquareInches(
+    getOverlappedSquareInchesList(
         parseClaims(test.claims)
     )
-) === test.referenceResult;
+) === test.firstPuzzlePartReferenceResult;
 
 console.log('test', testResults ? 'passed' : 'failed');
 
@@ -1490,16 +1499,72 @@ const input = `#1 @ 387,801: 11x22
 #1349 @ 869,323: 14x21`;
 
 //console.log(
-//    getOverlappedSquareInches(
+//    getOverlappedSquareInchesList(
 //        parseClaims(input)
 //    )
 //);
 
-const result = getOverlappedSquareInchesCount(
-    getOverlappedSquareInches(
+const firstPartPuzzleSolution = getOverlappedSquareInchesCount(
+    getOverlappedSquareInchesList(
         parseClaims(input)
     )
 );
 
 // 115304
-console.log('result is', result);
+console.log('first part puzzle solution is', firstPartPuzzleSolution);
+
+
+const getNonOverlappedClaim = (claims) => {
+    
+    const overlappedClaims = Object.entries(
+            getClaimedSquareInches(claims)
+        )
+        .reduce(
+            (claimedOverlappedClaims, [claimedSquareInch, claimsId]) => {
+
+                if (claimsId.length > 1) {
+
+                    //console.log(claimedSquareInch, claimsId);
+
+                    claimsId.forEach(
+                        (claimId) => claimedOverlappedClaims.add(claimId)
+                    )
+
+                }
+
+                return claimedOverlappedClaims;
+            },
+            new Set()
+        );
+
+    //console.log(overlappedClaims);
+
+    const nonOverlappedClaims = claims.filter(
+        ({id}) => !overlappedClaims.has(id)
+    );
+
+    if (nonOverlappedClaims.length === 1) {
+
+        return nonOverlappedClaims[0];
+
+    }
+};
+
+const getClaimNumberId = (claim) => parseInt(claim.id);
+
+const secondPartTestResults = getClaimNumberId(
+    getNonOverlappedClaim(
+        parseClaims(test.claims)
+    )
+) === test.secondPuzzlePartReferenceResult;
+
+console.log('second part test', secondPartTestResults ? 'passed' : 'failed');
+
+const secondPartPuzzleSolution = getClaimNumberId(
+    getNonOverlappedClaim(
+        parseClaims(input)
+    )
+);
+
+// 275
+console.log('second puzzle part solution', secondPartPuzzleSolution);
