@@ -40,8 +40,7 @@ If the Elves all proceed with their own plans, none of them will have enough fab
 */
 
 const test = {
-    claims: 
-`#1 @ 1,3: 4x4
+    claims: `#1 @ 1,3: 4x4
 #2 @ 3,1: 4x4
 #3 @ 5,5: 2x2`,
     referenceResult: 4
@@ -73,7 +72,7 @@ const getOverlappedSquareInches = (claims) => {
 
             let y = claim.y + 1;
 
-            for (; y < claim.y + 1 + claim.width; y += 1) {
+            for (; y < claim.y + 1 + claim.height; y += 1) {
 
                 let x = claim.x + 1;
 
@@ -84,8 +83,6 @@ const getOverlappedSquareInches = (claims) => {
                     //console.log(x, y);
 
                     const hash = [x, y].join(',');
-
-                    //acc.add([x, y].join(','));
 
                     if (acc[hash]) {
                         
@@ -103,7 +100,6 @@ const getOverlappedSquareInches = (claims) => {
             
             return acc;
         },
-        //new Set()
         {}
     );
 
@@ -128,8 +124,10 @@ const getOverlappedSquareInchesCount = (overlappedSquareInches) => overlappedSqu
 
 //console.log(parseClaims(test.claims));
 
-//getOverlappedSquareInches(
-//    parseClaims(test.claims)
+//console.log(
+//    getOverlappedSquareInches(
+//        parseClaims(test.claims)
+//    )
 //);
 
 const testResults = getOverlappedSquareInchesCount(
@@ -1491,10 +1489,17 @@ const input = `#1 @ 387,801: 11x22
 #1348 @ 213,195: 26x25
 #1349 @ 869,323: 14x21`;
 
+//console.log(
+//    getOverlappedSquareInches(
+//        parseClaims(input)
+//    )
+//);
+
 const result = getOverlappedSquareInchesCount(
     getOverlappedSquareInches(
         parseClaims(input)
     )
 );
 
+// 115304
 console.log('result is', result);
