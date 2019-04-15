@@ -1,6 +1,7 @@
 import System.Environment (getArgs)
 import qualified Data.List as List
 import qualified Data.Char as Char
+import qualified Data.Ord as Ord
 
 interactWith f inputFile outputFile = do
     input <- readFile inputFile
@@ -22,28 +23,26 @@ uniqLetters = foldl process []
             | List.any (== char) acc = acc
             | otherwise = char : acc
 
+reduceAndReactPolymer :: String -> [(Char, Int)]
 reduceAndReactPolymer inputString = map reduceString uniqLowercaseLetters
-    where uniqLowercaseLetters = uniqLetters . (map Char.toLower) $ inputString
-          reduceString letter = (letter, length . reactPolymer . filterInputString $ letter)
+    where uniqLowercaseLetters = uniqLetters $ (map Char.toLower) inputString
+          reduceString letter = (letter, length $ reactPolymer $ filterInputString letter)
           filterInputString letter = filter (\x -> Char.toLower x /= letter) inputString
 
-findShortestPolymerLength = snd . (List.maximumBy (\(_,y) (_,x) ->  compare x y))
+findShortestPolymerLength :: [(Char, Int)] -> Int
+findShortestPolymerLength = snd . List.minimumBy (Ord.comparing snd)
 
-main = mainWith myF
+main = mainWith solvePuzzle
     where mainWith f = do
             args <- getArgs
             case args of
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          -- dbg
-          --myF = show . reverse . reactPolymer
-
-          firstPartSolution = show . length . reactPolymer
-          secondPartSolution = show . findShortestPolymerLength . reduceAndReactPolymer
-          solvePuzzle input = "First part solution is: " ++ (firstPartSolution input)  ++ "\n" ++
-            "Second part solution is: " ++ (secondPartSolution input)
-          myF = solvePuzzle
+          solveFirstPuzzlePart = show . length . reactPolymer
+          solveSecondPuzzlePart = show . findShortestPolymerLength . reduceAndReactPolymer
+          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n" ++
+            "Second part solution is: " ++ solveSecondPuzzlePart input
 
 
 --The polymer is formed by smaller units which, when triggered, react with each other such that two adjacent units of the same type and opposite polarity are destroyed. Units' types are represented by letters; units' polarity is represented by capitalization.
