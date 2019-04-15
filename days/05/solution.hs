@@ -1,26 +1,33 @@
 import System.Environment (getArgs)
 import qualified Data.List as List
 import qualified Data.Char as Char
---import Data.List (reverse, sort)
---import Data.Map.Strict (Map, empty, insert, insertWith, unionWith)
---import qualified Data.Map.Strict as Map
---import Data.Maybe (fromJust)
 
 interactWith f inputFile outputFile = do
     input <- readFile inputFile
     writeFile outputFile $ f input
 
---process :: String -> Char -> String
---process acc c = 
-
-processInput :: String -> String
-processInput = foldl process []
+reactPolymer :: String -> String
+reactPolymer = foldl process []
     where process [] char = [char]
           process acc '\n' = acc
           process acc@(x:xs) char
             | (Char.toLower char) == (Char.toLower x) && char /= x = xs
             | otherwise = char : acc
           
+uniqLetters :: String -> String
+uniqLetters = foldl process []
+    where process [] char = [char]
+          process acc '\n' = acc
+          process acc char
+            | List.any (== char) acc = acc
+            | otherwise = char : acc
+
+reduceAndReactPolymer inputString = map reduceString uniqLowercaseLetters
+    where uniqLowercaseLetters = uniqLetters . (map Char.toLower) $ inputString
+          reduceString letter = (letter, length . reactPolymer . filterInputString $ letter)
+          filterInputString letter = filter (\x -> Char.toLower x /= letter) inputString
+
+findShortestPolymerLength = snd . (List.maximumBy (\(_,y) (_,x) ->  compare x y))
 
 main = mainWith myF
     where mainWith f = do
@@ -29,8 +36,14 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --myF = show . processInput
-          myF = show . length . processInput
+          -- dbg
+          --myF = show . reverse . reactPolymer
+
+          firstPartSolution = show . length . reactPolymer
+          secondPartSolution = show . findShortestPolymerLength . reduceAndReactPolymer
+          solvePuzzle input = "First part solution is: " ++ (firstPartSolution input)  ++ "\n" ++
+            "Second part solution is: " ++ (secondPartSolution input)
+          myF = solvePuzzle
 
 
 --The polymer is formed by smaller units which, when triggered, react with each other such that two adjacent units of the same type and opposite polarity are destroyed. Units' types are represented by letters; units' polarity is represented by capitalization.
@@ -49,3 +62,17 @@ main = mainWith myF
 --After all possible reactions, the resulting polymer contains 10 units.
 
 --How many units remain after fully reacting the polymer you scanned?
+
+--Part Two
+--
+--Your goal is to figure out which unit type is causing the most problems, remove all instances of it (regardless of polarity), fully react the remaining polymer, and measure its length.
+--
+--For example, again using the polymer dabAcCaCBAcCcaDA from above:
+--
+--Removing all A/a units produces dbcCCBcCcD. Fully reacting this polymer produces dbCBcD, which has length 6.
+--Removing all B/b units produces daAcCaCAcCcaDA. Fully reacting this polymer produces daCAcaDA, which has length 8.
+--Removing all C/c units produces dabAaBAaDA. Fully reacting this polymer produces daDA, which has length 4.
+--Removing all D/d units produces abAcCaCBAcCcaA. Fully reacting this polymer produces abCBAc, which has length 6.
+--In this example, removing all C/c units was best, producing the answer 4.
+--
+--What is the length of the shortest polymer you can produce by removing all units of exactly one type and fully reacting the result?
