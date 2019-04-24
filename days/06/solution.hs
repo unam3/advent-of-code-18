@@ -7,64 +7,70 @@ interactWith f inputFile outputFile = do
     input <- readFile inputFile
     writeFile outputFile $ f input
 
-makepointsList :: String -> [Int]
-makepointsList = strToInts . words where
+
+type Point = [Int]
+
+strToPoint :: String -> Point
+strToPoint = strToInts . words where
     strToInts [x, y] = [read $ init x, read y]
 
-cmp :: [Int] -> [Int] -> Ordering
-cmp [ax, ay] [bx, by]
-    | compare ax bx == GT = GT
-    | compare ax bx == EQ && compare ay by == LT = GT
-    | otherwise = LT
 
-findBoundingPoints :: [[Int]] -> [[Int]]
+findBoundingPoints :: [Point] -> [Point]
 findBoundingPoints pointsList = [minX, maxX, minY, maxY] where
     minX = List.minimumBy (Ord.comparing head) pointsList
     maxX = List.maximumBy (Ord.comparing head) pointsList
     minY = List.minimumBy (Ord.comparing (!! 1)) pointsList
     maxY = List.maximumBy (Ord.comparing (!! 1)) pointsList
 
-boundingPointsExtremeCoords :: [[Int]] -> [Int]
+boundingPointsExtremeCoords :: [Point] -> [Int]
 boundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX, maxX, minY, maxY] where
     minX = head minXPoint
     maxX = head maxXPoint
     minY = last minYPoint
     maxY = last maxYPoint
 
-makePlane :: [Int] -> Map.Map [Int] [[Int]]
+
+type RootPoint = [Int]
+
+type StepsFromRootPoint = Int
+
+--type Plane = Map.Map Point [(RootPoint, StepsFromRootPoint)]
+type Plane = Map.Map Point [[Int]]
+
+makePlane :: [Int] -> Plane
 makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
-    planeList = makePlaneList [] minX minY :: [([Int], [[Int]])]
+    planeList = makePlaneList [] minX minY :: [(Point, [[Int]])]
     makePlaneList acc x y
         | x < maxX = makePlaneList (([x, y], []) : acc) (x + 1) y
         | y < maxY = makePlaneList (([x, y], []) : acc) minX (y + 1)
         | y == maxY && x == maxX = (([x, y], []) : acc)
         | otherwise = acc
 
-putPointOnPlane :: [Int] -> Map.Map [Int] [[Int]] -> Map.Map [Int] [[Int]]
+putPointOnPlane :: Point -> Plane -> Plane
 putPointOnPlane point plane = Map.adjust (point :) point plane
 
-plotPoints :: Map.Map [Int] [[Int]] -> [[Int]] -> Map.Map [Int] [[Int]]
+plotPoints :: Plane -> [Point] -> Plane
 plotPoints plane (x : xs) = plotPoints (putPointOnPlane x plane) xs
 plotPoints plane [] = plane
 
-fillLocations :: Map.Map [Int] [[Int]] -> [[Int]] -> Int -> Map.Map [Int] [[Int]]
+fillLocations :: Plane -> [Point] -> StepsFromRootPoint -> Plane
 fillLocations plane pointsList 0 = plotPoints plane pointsList
 fillLocations plane pointsList step = plotPoints plane (concat $ map makeAdjacentPoints pointsList)
 
-makeAdjacentPoints :: [Int] -> [[Int]]
-makeAdjacentPoints point@[x,y] = [[x + 1, y], [x, y + 1]]
---makeAdjacentPoints :: Int -> [Int] -> [([Int], [Int], Int)]
+makeAdjacentPoints :: Point -> [Point]
+makeAdjacentPoints [x,y] = [[x + 1, y], [x, y + 1]]
+--makeAdjacentPoints :: Point -> RootPoint -> StepsFromRootPoint -> [(Point, RootPoint, StepsFromRootPoint)]
 --makeAdjacentPoints [x,y] rootPoint steps = 
 --    [
 --        ([x + 1, y], rootPoint, steps),
 --        ([x, y + 1], rootPoint, steps)
 --    ]
 
-pointsToTuples :: [Int] -> ((Int, Int), Int)
-pointsToTuples [x, y] = ((x, y), 0)
+pointToTuple :: Point -> ((Int, Int), Int)
+pointToTuple [x, y] = ((x, y), 0)
 
-makePointsAreaCounter :: [[Int]] -> Map.Map (Int, Int) Int
-makePointsAreaCounter = Map.fromList . map pointsToTuples
+makePointsAreaCounter :: [Point] -> Map.Map (Int, Int) Int
+makePointsAreaCounter = Map.fromList . map pointToTuple
 
 main = mainWith myF
     where mainWith f = do
@@ -73,15 +79,14 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map makepointsList . lines
-          --solveFirstPuzzlePart = show . makePointsAreaCounter . map makepointsList . lines
-          --solveFirstPuzzlePart input = show $ plotPoints plane pointsList where
-          solveFirstPuzzlePart input = show $ fillLocations plane pointsList 0 where
-            pointsList = map makepointsList $ lines input
+          --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
+          --solveFirstPuzzlePart = show . makePointsAreaCounter . map strToPoint . lines
+          solveFirstPuzzlePart input = show $ plotPoints plane pointsList where
+          --solveFirstPuzzlePart input = show $ fillLocations plane pointsList 0 where
+            pointsList = map strToPoint $ lines input
             plane = makePlane $ boundingPointsExtremeCoords $ findBoundingPoints pointsList
           
-          --solveFirstPuzzlePart = show . List.maximumBy cmp . map makepointsList . lines
-          --solveFirstPuzzlePart = show . foldl makePointsMap Map.empty . map makepointsList . lines
+          --solveFirstPuzzlePart = show . foldl makePointsMap Map.empty . map strToPoint . lines
 
           -- solveSecondPuzzlePart = show . 
           solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
