@@ -61,27 +61,27 @@ plotPoints :: Plane -> [PointQuadriple] -> Plane
 plotPoints plane (x : xs) = plotPoints (putPointOnPlane x plane) xs
 plotPoints plane [] = plane
 
+-- each step (that /=0) allocates (4 * stepFromRoot) points
 fillLocations :: Plane -> [PointQuadriple] -> StepsFromRootPoint -> Plane
 fillLocations plane pointQuadplesList steps
-    | steps == 3 = plane
+    | steps == 5 = plane
     | True = fillLocations (plotPoints plane pointQuadplesList) adjacentPointQuadriples (steps + 1) where
         adjacentPointQuadriples = concat $ map makeAdjacentPointQuadriples pointQuadplesList
---fillLocations plane pointsList step = plotPoints plane (concat $ map makeAdjacentPointQuadriples pointsList)
 
 makeAdjacentPointQuadriples :: PointQuadriple -> [PointQuadriple]
 makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
     | steps == 0 = 
         [
-            ([x, y - 1], rootPoint, steps + 1, "N"),
+            ([x, y + 1], rootPoint, steps + 1, "N"),
             ([x + 1, y], rootPoint, steps + 1, "E"),
-            ([x, y + 1], rootPoint, steps + 1, "S"),
+            ([x, y - 1], rootPoint, steps + 1, "S"),
             ([x - 1, y], rootPoint, steps + 1, "W")
         ]
 
     -- clockwork turns; stepsFromRoot will be = 2
     | direction == "N" = 
         [
-            ([x, y - 1], rootPoint, steps + 1, "N"),
+            ([x, y + 1], rootPoint, steps + 1, "N"),
             ([x + 1, y], rootPoint, steps + 1, "NE")
         ]
 
@@ -93,14 +93,14 @@ makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
 
     | direction == "S" =
         [
-            ([x, y + 1], rootPoint, steps + 1, "S"),
+            ([x, y - 1], rootPoint, steps + 1, "S"),
             ([x - 1, y], rootPoint, steps + 1, "SW")
         ]
 
     | direction == "W" =
         [
             ([x - 1, y], rootPoint, steps + 1, "W"),
-            ([x, y  - 1], rootPoint, steps + 1, "NW")
+            ([x, y + 1], rootPoint, steps + 1, "NW")
         ]
 
     --  stepsFromRoot will be > 2
@@ -121,8 +121,7 @@ makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
 
     | direction == "NW" =
         [
-            ([x - 1, y], rootPoint, steps + 1, "W"),
-            ([x, y  - 1], rootPoint, steps + 1, "NW")
+            ([x, y + 1], rootPoint, steps + 1, "NW")
         ]
 
 pointToTuple :: Point -> ((Int, Int), Int)
@@ -142,7 +141,14 @@ main = mainWith myF
           --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
 
           --solveFirstPuzzlePart input = show $ plotPoints plane pointQuadplesList where
-          solveFirstPuzzlePart input = show $ fillLocations plane pointQuadplesList 0 where
+          solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
+
+            filterByRootPoint :: Plane -> Plane
+            filterByRootPoint = Map.filter (not . null . (filter filterByPointInfo)) 
+
+            filterByPointInfo :: (RootPoint, StepsFromRootPoint, Direction) -> Bool
+            filterByPointInfo (rootPoint, stepsFromRoot, _) = rootPoint == [54,185] && stepsFromRoot == 4
+
             pointsList = map strToPoint $ lines input
             plane = makePlane $ boundingPointsExtremeCoords $ findBoundingPoints pointsList
             pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
