@@ -61,11 +61,15 @@ plotPoints :: Plane -> [PointQuadriple] -> Plane
 plotPoints plane (x : xs) = plotPoints (putPointOnPlane x plane) xs
 plotPoints plane [] = plane
 
+-- brute force instead of some type of continuation passing style or some tracking of empty space
+hasEmptyLocation :: Plane -> Bool
+hasEmptyLocation = any null . Map.elems
+
 -- each step (that /=0) allocates (4 * stepFromRoot) points
 fillLocations :: Plane -> [PointQuadriple] -> StepsFromRootPoint -> Plane
 fillLocations plane pointQuadplesList steps
-    | steps == 5 = plane
-    | True = fillLocations (plotPoints plane pointQuadplesList) adjacentPointQuadriples (steps + 1) where
+    | hasEmptyLocation plane = fillLocations (plotPoints plane pointQuadplesList) adjacentPointQuadriples (steps + 1)
+    | otherwise = plane where
         adjacentPointQuadriples = concat $ map makeAdjacentPointQuadriples pointQuadplesList
 
 makeAdjacentPointQuadriples :: PointQuadriple -> [PointQuadriple]
@@ -141,13 +145,14 @@ main = mainWith myF
           --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
 
           --solveFirstPuzzlePart input = show $ plotPoints plane pointQuadplesList where
-          solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
+          solveFirstPuzzlePart input = show $ fillLocations plane pointQuadplesList 0 where
+          -- solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
 
-            filterByRootPoint :: Plane -> Plane
-            filterByRootPoint = Map.filter (not . null . (filter filterByPointInfo)) 
+          --   filterByRootPoint :: Plane -> Plane
+          --   filterByRootPoint = Map.filter (not . null . (filter filterByPointInfo)) 
 
-            filterByPointInfo :: (RootPoint, StepsFromRootPoint, Direction) -> Bool
-            filterByPointInfo (rootPoint, stepsFromRoot, _) = rootPoint == [54,185] && stepsFromRoot == 4
+          --   filterByPointInfo :: (RootPoint, StepsFromRootPoint, Direction) -> Bool
+          --   filterByPointInfo (rootPoint, stepsFromRoot, _) = rootPoint == [54,185] && stepsFromRoot == 4
 
             pointsList = map strToPoint $ lines input
             plane = makePlane $ boundingPointsExtremeCoords $ findBoundingPoints pointsList
