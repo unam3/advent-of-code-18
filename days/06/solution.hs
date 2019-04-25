@@ -15,6 +15,18 @@ strToPoint = strToInts . words where
     strToInts [x, y] = [read $ init x, read y]
 
 
+type RootPoint = [Int]
+
+type StepsFromRootPoint = Int
+
+type Direction = String
+
+type PointQuadriple = (Point, RootPoint, StepsFromRootPoint, Direction)
+
+prepareRootPointToPutOnPlane :: Point -> PointQuadriple
+prepareRootPointToPutOnPlane point = (point, point, 0, "")
+
+
 findBoundingPoints :: [Point] -> [Point]
 findBoundingPoints pointsList = [minX, maxX, minY, maxY] where
     minX = List.minimumBy (Ord.comparing head) pointsList
@@ -30,41 +42,88 @@ boundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX
     maxY = last maxYPoint
 
 
-type RootPoint = [Int]
-
-type StepsFromRootPoint = Int
-
---type Plane = Map.Map Point [(RootPoint, StepsFromRootPoint)]
-type Plane = Map.Map Point [[Int]]
+type Plane = Map.Map Point [(RootPoint, StepsFromRootPoint, Direction)]
 
 makePlane :: [Int] -> Plane
 makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
-    planeList = makePlaneList [] minX minY :: [(Point, [[Int]])]
+    planeList = makePlaneList [] minX minY :: [(Point, [(RootPoint, StepsFromRootPoint, Direction)])]
     makePlaneList acc x y
         | x < maxX = makePlaneList (([x, y], []) : acc) (x + 1) y
         | y < maxY = makePlaneList (([x, y], []) : acc) minX (y + 1)
         | y == maxY && x == maxX = (([x, y], []) : acc)
         | otherwise = acc
 
-putPointOnPlane :: Point -> Plane -> Plane
-putPointOnPlane point plane = Map.adjust (point :) point plane
+putPointOnPlane :: PointQuadriple -> Plane -> Plane
+putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
+    Map.adjust ((rootPoint, stepsFromRootPoint, direction) :) destination plane
 
-plotPoints :: Plane -> [Point] -> Plane
+plotPoints :: Plane -> [PointQuadriple] -> Plane
 plotPoints plane (x : xs) = plotPoints (putPointOnPlane x plane) xs
 plotPoints plane [] = plane
 
-fillLocations :: Plane -> [Point] -> StepsFromRootPoint -> Plane
-fillLocations plane pointsList 0 = plotPoints plane pointsList
-fillLocations plane pointsList step = plotPoints plane (concat $ map makeAdjacentPoints pointsList)
+fillLocations :: Plane -> [PointQuadriple] -> StepsFromRootPoint -> Plane
+fillLocations plane pointQuadplesList steps
+    | steps == 3 = plane
+    | True = fillLocations (plotPoints plane pointQuadplesList) adjacentPointQuadriples (steps + 1) where
+        adjacentPointQuadriples = concat $ map makeAdjacentPointQuadriples pointQuadplesList
+--fillLocations plane pointsList step = plotPoints plane (concat $ map makeAdjacentPointQuadriples pointsList)
 
-makeAdjacentPoints :: Point -> [Point]
-makeAdjacentPoints [x,y] = [[x + 1, y], [x, y + 1]]
---makeAdjacentPoints :: Point -> RootPoint -> StepsFromRootPoint -> [(Point, RootPoint, StepsFromRootPoint)]
---makeAdjacentPoints [x,y] rootPoint steps = 
---    [
---        ([x + 1, y], rootPoint, steps),
---        ([x, y + 1], rootPoint, steps)
---    ]
+makeAdjacentPointQuadriples :: PointQuadriple -> [PointQuadriple]
+makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
+    | steps == 0 = 
+        [
+            ([x, y - 1], rootPoint, steps + 1, "N"),
+            ([x + 1, y], rootPoint, steps + 1, "E"),
+            ([x, y + 1], rootPoint, steps + 1, "S"),
+            ([x - 1, y], rootPoint, steps + 1, "W")
+        ]
+
+    -- clockwork turns; stepsFromRoot will be = 2
+    | direction == "N" = 
+        [
+            ([x, y - 1], rootPoint, steps + 1, "N"),
+            ([x + 1, y], rootPoint, steps + 1, "NE")
+        ]
+
+    | direction == "E" = 
+        [
+            ([x + 1, y], rootPoint, steps + 1, "E"),
+            ([x, y - 1], rootPoint, steps + 1, "SE")
+        ]
+
+    | direction == "S" =
+        [
+            ([x, y + 1], rootPoint, steps + 1, "S"),
+            ([x - 1, y], rootPoint, steps + 1, "SW")
+        ]
+
+    | direction == "W" =
+        [
+            ([x - 1, y], rootPoint, steps + 1, "W"),
+            ([x, y  - 1], rootPoint, steps + 1, "NW")
+        ]
+
+    --  stepsFromRoot will be > 2
+    | direction == "NE" =
+        [
+            ([x + 1, y], rootPoint, steps + 1, "NE")
+        ]
+
+    | direction == "SE" =
+        [
+            ([x, y - 1], rootPoint, steps + 1, "SE")
+        ]
+
+    | direction == "SW" =
+        [
+            ([x - 1, y], rootPoint, steps + 1, "SW")
+        ]
+
+    | direction == "NW" =
+        [
+            ([x - 1, y], rootPoint, steps + 1, "W"),
+            ([x, y  - 1], rootPoint, steps + 1, "NW")
+        ]
 
 pointToTuple :: Point -> ((Int, Int), Int)
 pointToTuple [x, y] = ((x, y), 0)
@@ -79,13 +138,16 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
+          --solveFirstPuzzlePart = show . findBoundingPoints . map strToPoint . lines
           --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
-          --solveFirstPuzzlePart = show . makePointsAreaCounter . map strToPoint . lines
-          solveFirstPuzzlePart input = show $ plotPoints plane pointsList where
-          --solveFirstPuzzlePart input = show $ fillLocations plane pointsList 0 where
+
+          --solveFirstPuzzlePart input = show $ plotPoints plane pointQuadplesList where
+          solveFirstPuzzlePart input = show $ fillLocations plane pointQuadplesList 0 where
             pointsList = map strToPoint $ lines input
             plane = makePlane $ boundingPointsExtremeCoords $ findBoundingPoints pointsList
-          
+            pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
+
+          --solveFirstPuzzlePart = show . makePointsAreaCounter . map strToPoint . lines
           --solveFirstPuzzlePart = show . foldl makePointsMap Map.empty . map strToPoint . lines
 
           -- solveSecondPuzzlePart = show . 
