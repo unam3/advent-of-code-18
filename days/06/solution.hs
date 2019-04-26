@@ -66,7 +66,7 @@ putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
             --  we don't care about different stepsFromRootPoint 'cause allocating space process iterates steps and we
             -- only need points with less or equal steps
             && any ((== stepsFromRootPoint) . snd') allocatedInfo
-                then Just ((rootPoint, stepsFromRootPoint, direction) : allocatedInfo)
+                then Nothing
                 else Just allocatedInfo
         snd' (_, x, _) = x
 
@@ -148,9 +148,6 @@ pointToTuple [x, y] = ((x, y), 0)
 makePointsAreaCounter :: [Point] -> Map.Map (Int, Int) Int
 makePointsAreaCounter = Map.fromList . map pointToTuple
 
-filterEquallyFar :: Plane -> Plane
-filterEquallyFar = Map.filter ((== 1) . length)
-
 fst' :: PointInfo -> RootPoint
 fst' (x, _, _) = x
 
@@ -168,7 +165,7 @@ main = mainWith myF
         
           -- foldl (\acc x -> acc + (length $ snd x)) 0
 
-          solveFirstPuzzlePart input = show $ filterEquallyFar $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
+          solveFirstPuzzlePart input = show $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
           --solveFirstPuzzlePart input = show $ filterEquallyFar $ fillLocations plane pointQuadplesList 0 where
           -- solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
 
