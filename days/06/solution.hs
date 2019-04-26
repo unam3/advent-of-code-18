@@ -53,9 +53,21 @@ makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
         | y == maxY && x == maxX = (([x, y], []) : acc)
         | otherwise = acc
 
+
 putPointOnPlane :: PointQuadriple -> Plane -> Plane
 putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
-    Map.adjust ((rootPoint, stepsFromRootPoint, direction) :) destination plane
+    Map.alter justPutOrNoop destination plane where
+        justPutOrNoop :: Maybe [(RootPoint, StepsFromRootPoint, Direction)] -> Maybe [(RootPoint, StepsFromRootPoint, Direction)]
+        -- if alter not found such key — noop /w Nothing
+        justPutOrNoop Nothing = Nothing
+        justPutOrNoop (Just []) = Just [(rootPoint, stepsFromRootPoint, direction)]
+        justPutOrNoop (Just allocatedInfo) = if (length allocatedInfo) < 2
+            --  we don't care about different stepsFromRootPoint 'cause allocating space process iterates steps and we
+            -- only need points with less or equal steps
+            && any ((== stepsFromRootPoint) . snd') allocatedInfo
+                then Just ((rootPoint, stepsFromRootPoint, direction) : allocatedInfo)
+                else Nothing
+        snd' (_, x, _) = x
 
 plotPoints :: Plane -> [PointQuadriple] -> Plane
 plotPoints plane (x : xs) = plotPoints (putPointOnPlane x plane) xs
