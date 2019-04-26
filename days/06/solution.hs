@@ -41,12 +41,13 @@ boundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX
     minY = last minYPoint
     maxY = last maxYPoint
 
+type PointInfo = (RootPoint, StepsFromRootPoint, Direction)
 
-type Plane = Map.Map Point [(RootPoint, StepsFromRootPoint, Direction)]
+type Plane = Map.Map Point [PointInfo]
 
 makePlane :: [Int] -> Plane
 makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
-    planeList = makePlaneList [] minX minY :: [(Point, [(RootPoint, StepsFromRootPoint, Direction)])]
+    planeList = makePlaneList [] minX minY :: [(Point, [PointInfo])]
     makePlaneList acc x y
         | x < maxX = makePlaneList (([x, y], []) : acc) (x + 1) y
         | y < maxY = makePlaneList (([x, y], []) : acc) minX (y + 1)
@@ -57,7 +58,7 @@ makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
 putPointOnPlane :: PointQuadriple -> Plane -> Plane
 putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
     Map.alter justPutOrNoop destination plane where
-        justPutOrNoop :: Maybe [(RootPoint, StepsFromRootPoint, Direction)] -> Maybe [(RootPoint, StepsFromRootPoint, Direction)]
+        justPutOrNoop :: Maybe [PointInfo] -> Maybe [PointInfo]
         -- if alter not found such key — noop /w Nothing
         justPutOrNoop Nothing = Nothing
         justPutOrNoop (Just []) = Just [(rootPoint, stepsFromRootPoint, direction)]
@@ -150,7 +151,7 @@ makePointsAreaCounter = Map.fromList . map pointToTuple
 filterEquallyFar :: Plane -> Plane
 filterEquallyFar = Map.filter ((== 1) . length)
 
-fst' :: (RootPoint, StepsFromRootPoint, Direction) -> RootPoint
+fst' :: PointInfo -> RootPoint
 fst' (x, _, _) = x
 
 main = mainWith myF
