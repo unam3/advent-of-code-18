@@ -145,11 +145,11 @@ makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
 pointToTuple :: Point -> ((Int, Int), Int)
 pointToTuple [x, y] = ((x, y), 0)
 
-makePointsAreaCounter :: [Point] -> Map.Map (Int, Int) Int
-makePointsAreaCounter = Map.fromList . map pointToTuple
-
 fst' :: PointInfo -> RootPoint
 fst' (x, _, _) = x
+
+type LocationsCount = Int
+type AreaCounter = Map.Map Point LocationsCount
 
 main = mainWith myF
     where mainWith f = do
@@ -158,32 +158,29 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . findBoundingPoints . map strToPoint . lines
           --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
 
-          --solveFirstPuzzlePart input = show $ plotPoints plane pointQuadplesList where
-        
-          -- foldl (\acc x -> acc + (length $ snd x)) 0
-
-          solveFirstPuzzlePart input = show $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
-          --solveFirstPuzzlePart input = show $ filterEquallyFar $ fillLocations plane pointQuadplesList 0 where
-          -- solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
-
-          --   filterByRootPoint :: Plane -> Plane
-          --   filterByRootPoint = Map.filter (not . null . (filter filterByPointInfo)) 
-
-          --   filterByPointInfo :: (RootPoint, StepsFromRootPoint, Direction) -> Bool
-          --   filterByPointInfo (rootPoint, stepsFromRoot, _) = rootPoint == [54,185] && stepsFromRoot == 4
-
+          solveFirstPuzzlePart input = show $ getLargestAreaSize $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
             pointsList = map strToPoint $ lines input
             plane = makePlane $ boundingPointsExtremeCoords boundingPoints
             boundingPoints = findBoundingPoints pointsList
             pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
+            
             filterInfiniteAreasPoints :: Plane -> Plane
             filterInfiniteAreasPoints = Map.filter (all (not . ((`elem` boundingPoints) . fst')))
 
-          --solveFirstPuzzlePart = show . makePointsAreaCounter . map strToPoint . lines
-          --solveFirstPuzzlePart = show . foldl makePointsMap Map.empty . map strToPoint . lines
+            getLargestAreaSize :: Plane -> LocationsCount
+            getLargestAreaSize = snd . (List.maximumBy (Ord.comparing snd)) . Map.toList . foldToAreaCounter where
+
+                foldToAreaCounter :: Plane -> AreaCounter
+                foldToAreaCounter = Map.foldl mfoldl Map.empty
+
+                mfoldl :: Map.Map Point LocationsCount -> [PointInfo] -> Map.Map Point LocationsCount
+                mfoldl areaCounter [(rootPoint, _, _)] = Map.alter countPoints rootPoint areaCounter
+
+                countPoints :: Maybe LocationsCount -> Maybe LocationsCount
+                countPoints Nothing = Just 1
+                countPoints (Just counted) = Just (counted + 1)
 
           -- solveSecondPuzzlePart = show . 
           solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
