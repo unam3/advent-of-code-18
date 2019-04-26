@@ -61,12 +61,12 @@ putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
         -- if alter not found such key — noop /w Nothing
         justPutOrNoop Nothing = Nothing
         justPutOrNoop (Just []) = Just [(rootPoint, stepsFromRootPoint, direction)]
-        justPutOrNoop (Just allocatedInfo) = if (length allocatedInfo) < 2
+        justPutOrNoop (Just allocatedInfo) = if (length allocatedInfo) == 1
             --  we don't care about different stepsFromRootPoint 'cause allocating space process iterates steps and we
             -- only need points with less or equal steps
             && any ((== stepsFromRootPoint) . snd') allocatedInfo
                 then Just ((rootPoint, stepsFromRootPoint, direction) : allocatedInfo)
-                else Nothing
+                else Just allocatedInfo
         snd' (_, x, _) = x
 
 plotPoints :: Plane -> [PointQuadriple] -> Plane
@@ -83,6 +83,7 @@ fillLocations plane pointQuadplesList steps
     | hasEmptyLocation plane = fillLocations (plotPoints plane pointQuadplesList) adjacentPointQuadriples (steps + 1)
     | otherwise = plane where
         adjacentPointQuadriples = concat $ map makeAdjacentPointQuadriples pointQuadplesList
+
 
 makeAdjacentPointQuadriples :: PointQuadriple -> [PointQuadriple]
 makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
@@ -146,6 +147,12 @@ pointToTuple [x, y] = ((x, y), 0)
 makePointsAreaCounter :: [Point] -> Map.Map (Int, Int) Int
 makePointsAreaCounter = Map.fromList . map pointToTuple
 
+filterEquallyFar :: Plane -> Plane
+filterEquallyFar = Map.filter ((== 1) . length)
+
+fst' :: (RootPoint, StepsFromRootPoint, Direction) -> RootPoint
+fst' (x, _, _) = x
+
 main = mainWith myF
     where mainWith f = do
             args <- getArgs
@@ -157,7 +164,11 @@ main = mainWith myF
           --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
 
           --solveFirstPuzzlePart input = show $ plotPoints plane pointQuadplesList where
-          solveFirstPuzzlePart input = show $ fillLocations plane pointQuadplesList 0 where
+        
+          -- foldl (\acc x -> acc + (length $ snd x)) 0
+
+          solveFirstPuzzlePart input = show $ filterEquallyFar $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
+          --solveFirstPuzzlePart input = show $ filterEquallyFar $ fillLocations plane pointQuadplesList 0 where
           -- solveFirstPuzzlePart input = show $ filterByRootPoint $ fillLocations plane pointQuadplesList 0 where
 
           --   filterByRootPoint :: Plane -> Plane
@@ -167,8 +178,11 @@ main = mainWith myF
           --   filterByPointInfo (rootPoint, stepsFromRoot, _) = rootPoint == [54,185] && stepsFromRoot == 4
 
             pointsList = map strToPoint $ lines input
-            plane = makePlane $ boundingPointsExtremeCoords $ findBoundingPoints pointsList
+            plane = makePlane $ boundingPointsExtremeCoords boundingPoints
+            boundingPoints = findBoundingPoints pointsList
             pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
+            filterInfiniteAreasPoints :: Plane -> Plane
+            filterInfiniteAreasPoints = Map.filter (all (not . ((`elem` boundingPoints) . fst')))
 
           --solveFirstPuzzlePart = show . makePointsAreaCounter . map strToPoint . lines
           --solveFirstPuzzlePart = show . foldl makePointsMap Map.empty . map strToPoint . lines
