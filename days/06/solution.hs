@@ -3,19 +3,21 @@ import qualified Data.List as List
 import qualified Data.Ord as Ord
 import qualified Data.Map.Strict as Map
 
+interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
 interactWith f inputFile outputFile = do
     input <- readFile inputFile
     writeFile outputFile $ f input
 
 
-type Point = [Int]
+type Point = (Int, Int)
 
 strToPoint :: String -> Point
 strToPoint = strToInts . words where
-    strToInts [x, y] = [read $ init x, read y]
+    strToInts [x, y] = (read $ init x, read y)
+    strToInts _ = error "strToPoint: takes only string with one space between numbers"
 
 
-type RootPoint = [Int]
+type RootPoint = (Int, Int)
 
 type StepsFromRootPoint = Int
 
@@ -28,18 +30,19 @@ prepareRootPointToPutOnPlane point = (point, point, 0, "")
 
 
 findBoundingPoints :: [Point] -> [Point]
-findBoundingPoints pointsList = [minX, maxX, minY, maxY] where
-    minX = List.minimumBy (Ord.comparing head) pointsList
-    maxX = List.maximumBy (Ord.comparing head) pointsList
-    minY = List.minimumBy (Ord.comparing (!! 1)) pointsList
-    maxY = List.maximumBy (Ord.comparing (!! 1)) pointsList
+findBoundingPoints pointsList = [minXPoint, maxXPoint, minYPoint, maxYPoint] where
+    minXPoint = List.minimumBy (Ord.comparing fst) pointsList
+    maxXPoint = List.maximumBy (Ord.comparing fst) pointsList
+    minYPoint = List.minimumBy (Ord.comparing snd) pointsList
+    maxYPoint = List.maximumBy (Ord.comparing snd) pointsList
 
 boundingPointsExtremeCoords :: [Point] -> [Int]
 boundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX, maxX, minY, maxY] where
-    minX = head minXPoint
-    maxX = head maxXPoint
-    minY = last minYPoint
-    maxY = last maxYPoint
+    minX = fst minXPoint
+    maxX = fst maxXPoint
+    minY = snd minYPoint
+    maxY = snd maxYPoint
+boundingPointsExtremeCoords _ = error "boundingPointsExtremeCoords: takes only list of four Points"
 
 type PointInfo = (RootPoint, StepsFromRootPoint, Direction)
 
@@ -49,10 +52,11 @@ makePlane :: [Int] -> Plane
 makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
     planeList = makePlaneList [] minX minY :: [(Point, [PointInfo])]
     makePlaneList acc x y
-        | x < maxX = makePlaneList (([x, y], []) : acc) (x + 1) y
-        | y < maxY = makePlaneList (([x, y], []) : acc) minX (y + 1)
-        | y == maxY && x == maxX = (([x, y], []) : acc)
+        | x < maxX = makePlaneList (((x, y), []) : acc) (x + 1) y
+        | y < maxY = makePlaneList (((x, y), []) : acc) minX (y + 1)
+        | y == maxY && x == maxX = (((x, y), []) : acc)
         | otherwise = acc
+makePlane _ = error "makePlane: takes only list of four Ints"
 
 
 putPointOnPlane :: PointQuadriple -> Plane -> Plane
@@ -66,6 +70,8 @@ putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
             --  we don't care about different stepsFromRootPoint 'cause allocating space process iterates steps and we
             -- only need points with less or equal steps
             && any ((== stepsFromRootPoint) . snd') allocatedInfo
+                --  point that was allocated by different root points doesn't counts as area part, therefore we safely
+                -- ignore it
                 then Nothing
                 else Just allocatedInfo
         snd' (_, x, _) = x
@@ -87,63 +93,61 @@ fillLocations plane pointQuadplesList steps
 
 
 makeAdjacentPointQuadriples :: PointQuadriple -> [PointQuadriple]
-makeAdjacentPointQuadriples ([x,y], rootPoint, steps, direction)
+makeAdjacentPointQuadriples ((x,y), rootPoint, steps, direction)
     | steps == 0 = 
         [
-            ([x, y + 1], rootPoint, steps + 1, "N"),
-            ([x + 1, y], rootPoint, steps + 1, "E"),
-            ([x, y - 1], rootPoint, steps + 1, "S"),
-            ([x - 1, y], rootPoint, steps + 1, "W")
+            ((x, y + 1), rootPoint, steps + 1, "N"),
+            ((x + 1, y), rootPoint, steps + 1, "E"),
+            ((x, y - 1), rootPoint, steps + 1, "S"),
+            ((x - 1, y), rootPoint, steps + 1, "W")
         ]
 
     -- clockwork turns; stepsFromRoot will be = 2
     | direction == "N" = 
         [
-            ([x, y + 1], rootPoint, steps + 1, "N"),
-            ([x + 1, y], rootPoint, steps + 1, "NE")
+            ((x, y + 1), rootPoint, steps + 1, "N"),
+            ((x + 1, y), rootPoint, steps + 1, "NE")
         ]
 
     | direction == "E" = 
         [
-            ([x + 1, y], rootPoint, steps + 1, "E"),
-            ([x, y - 1], rootPoint, steps + 1, "SE")
+            ((x + 1, y), rootPoint, steps + 1, "E"),
+            ((x, y - 1), rootPoint, steps + 1, "SE")
         ]
 
     | direction == "S" =
         [
-            ([x, y - 1], rootPoint, steps + 1, "S"),
-            ([x - 1, y], rootPoint, steps + 1, "SW")
+            ((x, y - 1), rootPoint, steps + 1, "S"),
+            ((x - 1, y), rootPoint, steps + 1, "SW")
         ]
 
     | direction == "W" =
         [
-            ([x - 1, y], rootPoint, steps + 1, "W"),
-            ([x, y + 1], rootPoint, steps + 1, "NW")
+            ((x - 1, y), rootPoint, steps + 1, "W"),
+            ((x, y + 1), rootPoint, steps + 1, "NW")
         ]
 
     --  stepsFromRoot will be > 2
     | direction == "NE" =
         [
-            ([x + 1, y], rootPoint, steps + 1, "NE")
+            ((x + 1, y), rootPoint, steps + 1, "NE")
         ]
 
     | direction == "SE" =
         [
-            ([x, y - 1], rootPoint, steps + 1, "SE")
+            ((x, y - 1), rootPoint, steps + 1, "SE")
         ]
 
     | direction == "SW" =
         [
-            ([x - 1, y], rootPoint, steps + 1, "SW")
+            ((x - 1, y), rootPoint, steps + 1, "SW")
         ]
 
     | direction == "NW" =
         [
-            ([x, y + 1], rootPoint, steps + 1, "NW")
+            ((x, y + 1), rootPoint, steps + 1, "NW")
         ]
-
-pointToTuple :: Point -> ((Int, Int), Int)
-pointToTuple [x, y] = ((x, y), 0)
+makeAdjacentPointQuadriples _ = error "makeAdjacentPointQuadriples: takes only ((x,y), rootPoint, steps, direction)"
 
 fst' :: PointInfo -> RootPoint
 fst' (x, _, _) = x
@@ -151,6 +155,7 @@ fst' (x, _, _) = x
 type LocationsCount = Int
 type AreaCounter = Map.Map Point LocationsCount
 
+main :: IO ()
 main = mainWith myF
     where mainWith f = do
             args <- getArgs
@@ -177,6 +182,7 @@ main = mainWith myF
 
                 mfoldl :: Map.Map Point LocationsCount -> [PointInfo] -> Map.Map Point LocationsCount
                 mfoldl areaCounter [(rootPoint, _, _)] = Map.alter countPoints rootPoint areaCounter
+                mfoldl _ _ = error "mfoldl: takes only 'areaCounter [(rootPoint, _, _)]'"
 
                 countPoints :: Maybe LocationsCount -> Maybe LocationsCount
                 countPoints Nothing = Just 1
