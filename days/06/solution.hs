@@ -2,6 +2,7 @@ import System.Environment (getArgs)
 import qualified Data.List as List
 import qualified Data.Ord as Ord
 import qualified Data.Map.Strict as Map
+import qualified Data.Maybe as Maybe
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
 interactWith f inputFile outputFile = do
@@ -36,13 +37,13 @@ findBoundingPoints pointsList = [minXPoint, maxXPoint, minYPoint, maxYPoint] whe
     minYPoint = List.minimumBy (Ord.comparing snd) pointsList
     maxYPoint = List.maximumBy (Ord.comparing snd) pointsList
 
-boundingPointsExtremeCoords :: [Point] -> [Int]
-boundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX, maxX, minY, maxY] where
+getBoundingPointsExtremeCoords :: [Point] -> [Int]
+getBoundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX, maxX, minY, maxY] where
     minX = fst minXPoint
     maxX = fst maxXPoint
     minY = snd minYPoint
     maxY = snd maxYPoint
-boundingPointsExtremeCoords _ = error "boundingPointsExtremeCoords: takes only list of four Points"
+getBoundingPointsExtremeCoords _ = error "getBoundingPointsExtremeCoords: takes only list of four Points"
 
 type PointInfo = (RootPoint, StepsFromRootPoint, Direction)
 
@@ -163,16 +164,38 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . boundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
+          --solveFirstPuzzlePart = show . getBoundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
 
-          solveFirstPuzzlePart input = show $ getLargestAreaSize $ filterInfiniteAreasPoints $ fillLocations plane pointQuadplesList 0 where
+          solveFirstPuzzlePart input = show $ getLargestAreaSize $ filterInfiniteAreasPoints filledPlane  where
+          --solveFirstPuzzlePart input = show $ possibleBorderPoints boundingPointsExtremeCoords where
+            filledPlane = fillLocations plane pointQuadplesList 0
             pointsList = map strToPoint $ lines input
-            plane = makePlane $ boundingPointsExtremeCoords boundingPoints
+            plane = makePlane boundingPointsExtremeCoords
+            boundingPointsExtremeCoords = getBoundingPointsExtremeCoords boundingPoints
             boundingPoints = findBoundingPoints pointsList
             pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
             
             filterInfiniteAreasPoints :: Plane -> Plane
-            filterInfiniteAreasPoints = Map.filter (all (not . ((`elem` boundingPoints) . fst')))
+            filterInfiniteAreasPoints = Map.filter (all (not . ((`elem` infiniteAreasRootPoints) . fst')))
+
+            infiniteAreasRootPoints :: [RootPoint]
+            infiniteAreasRootPoints =
+                foldl infiniteAreasPointsFoldl [] (possibleBorderPoints boundingPointsExtremeCoords)
+
+            infiniteAreasPointsFoldl :: [Point] -> Point -> [RootPoint]
+            infiniteAreasPointsFoldl borderPoints point
+                | maybeRootPoint == Nothing = borderPoints
+                | otherwise = ((fst' $ head $ Maybe.fromJust maybeRootPoint) : borderPoints) where
+                    maybeRootPoint = Map.lookup point filledPlane
+
+            possibleBorderPoints :: [Int] -> [Point]
+            possibleBorderPoints [minX, maxX, minY, maxY] = 
+                zip [minX..maxX] (repeat minY) ++
+                zip [minX..maxX] (repeat maxY) ++
+                zip (repeat minX) [minY..maxY] ++
+                zip (repeat maxX) [minY..maxY]
+            possibleBorderPoints _ = error "possibleBorderPoints: wrong args"
+
 
             getLargestAreaSize :: Plane -> LocationsCount
             getLargestAreaSize = snd . (List.maximumBy (Ord.comparing snd)) . Map.toList . foldToAreaCounter where
