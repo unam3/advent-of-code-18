@@ -17,6 +17,13 @@ strToPoint = strToInts . words where
     strToInts [x, y] = (read $ init x, read y)
     strToInts _ = error "strToPoint: takes only string with one space between numbers"
 
+makePlanePointsList :: (Int, Int, Int, Int) -> [Point]
+makePlanePointsList (minX, maxX, minY, maxY) = makePlaneList [] minX minY where
+    makePlaneList acc x y
+        | x < maxX = makePlaneList ((x, y) : acc) (x + 1) y
+        | y < maxY = makePlaneList ((x, y) : acc) minX (y + 1)
+        | y == maxY && x == maxX = ((x, y) : acc)
+        | otherwise = acc
 
 type RootPoint = (Int, Int)
 
@@ -30,35 +37,27 @@ prepareRootPointToPutOnPlane :: Point -> PointQuadriple
 prepareRootPointToPutOnPlane point = (point, point, 0, "")
 
 
-findBoundingPoints :: [Point] -> [Point]
-findBoundingPoints pointsList = [minXPoint, maxXPoint, minYPoint, maxYPoint] where
+findBoundingPoints :: [Point] -> (Point, Point, Point, Point)
+findBoundingPoints pointsList = (minXPoint, maxXPoint, minYPoint, maxYPoint) where
     minXPoint = List.minimumBy (Ord.comparing fst) pointsList
     maxXPoint = List.maximumBy (Ord.comparing fst) pointsList
     minYPoint = List.minimumBy (Ord.comparing snd) pointsList
     maxYPoint = List.maximumBy (Ord.comparing snd) pointsList
 
-getBoundingPointsExtremeCoords :: [Point] -> [Int]
-getBoundingPointsExtremeCoords [minXPoint, maxXPoint, minYPoint, maxYPoint] = [minX, maxX, minY, maxY] where
+getBoundingPointsExtremeCoords :: (Point, Point, Point, Point) -> (Int, Int, Int, Int)
+getBoundingPointsExtremeCoords (minXPoint, maxXPoint, minYPoint, maxYPoint) = (minX, maxX, minY, maxY) where
     minX = fst minXPoint
     maxX = fst maxXPoint
     minY = snd minYPoint
     maxY = snd maxYPoint
-getBoundingPointsExtremeCoords _ = error "getBoundingPointsExtremeCoords: takes only list of four Points"
 
 type PointInfo = (RootPoint, StepsFromRootPoint, Direction)
 
 type Plane = Map.Map Point [PointInfo]
 
-makePlane :: [Int] -> Plane
-makePlane [minX, maxX, minY, maxY] = Map.fromList planeList where
-    planeList = makePlaneList [] minX minY :: [(Point, [PointInfo])]
-    makePlaneList acc x y
-        | x < maxX = makePlaneList (((x, y), []) : acc) (x + 1) y
-        | y < maxY = makePlaneList (((x, y), []) : acc) minX (y + 1)
-        | y == maxY && x == maxX = (((x, y), []) : acc)
-        | otherwise = acc
-makePlane _ = error "makePlane: takes only list of four Ints"
 
+makePlane :: [Point] -> Plane
+makePlane = Map.fromList . map (\point -> (point, []))
 
 putPointOnPlane :: PointQuadriple -> Plane -> Plane
 putPointOnPlane (destination, rootPoint, stepsFromRootPoint, direction) plane =
@@ -156,6 +155,35 @@ fst' (x, _, _) = x
 type LocationsCount = Int
 type AreaCounter = Map.Map Point LocationsCount
 
+
+-- coordinate — any root point
+-- location — any point
+countDistanceToCoordinate :: Point -> Point -> Int
+countDistanceToCoordinate (lx, ly) (cx, cy) = abs (lx - cx) + abs (ly - cy)
+
+countTotalDistance :: Point -> [Point] -> Int
+countTotalDistance location = foldl f 0 where
+    f totalDistanceAcc coordinate = totalDistanceAcc + (countDistanceToCoordinate location coordinate)
+
+
+type MaxTotalDistance = Int
+
+type PointsList = [Point]
+
+isLocationWithinDesiredRegion :: MaxTotalDistance -> PointsList -> Point -> Bool
+isLocationWithinDesiredRegion maxTotalDistance coordinates location = totalDistance < maxTotalDistance where
+    totalDistance = countTotalDistance location coordinates
+
+
+type PlanePointsList = [Point]
+
+type Region = [Point]
+
+findParticulartRegionSize :: MaxTotalDistance -> PointsList -> PlanePointsList -> Int
+findParticulartRegionSize maxTotalDistance pointsList =
+    length . filter (isLocationWithinDesiredRegion maxTotalDistance pointsList)
+
+
 main :: IO ()
 main = mainWith myF
     where mainWith f = do
@@ -164,13 +192,12 @@ main = mainWith myF
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . getBoundingPointsExtremeCoords . findBoundingPoints . map strToPoint . lines
-
+          --solveFirstPuzzlePart input = show . getBoundingPointsExtremeCoords . findBoundingPoints . map strToPoint $ lines input where
           solveFirstPuzzlePart input = show $ getLargestAreaSize $ filterInfiniteAreasPoints filledPlane  where
           --solveFirstPuzzlePart input = show $ possibleBorderPoints boundingPointsExtremeCoords where
             filledPlane = fillLocations plane pointQuadplesList 0
             pointsList = map strToPoint $ lines input
-            plane = makePlane boundingPointsExtremeCoords
+            plane = makePlane $ makePlanePointsList boundingPointsExtremeCoords
             boundingPointsExtremeCoords = getBoundingPointsExtremeCoords boundingPoints
             boundingPoints = findBoundingPoints pointsList
             pointQuadplesList = map prepareRootPointToPutOnPlane pointsList
@@ -188,13 +215,12 @@ main = mainWith myF
                 | otherwise = ((fst' $ head $ Maybe.fromJust maybeRootPoint) : borderPoints) where
                     maybeRootPoint = Map.lookup point filledPlane
 
-            possibleBorderPoints :: [Int] -> [Point]
-            possibleBorderPoints [minX, maxX, minY, maxY] = 
+            possibleBorderPoints :: (Int, Int, Int, Int) -> [Point]
+            possibleBorderPoints (minX, maxX, minY, maxY) = 
                 zip [minX..maxX] (repeat minY) ++
                 zip [minX..maxX] (repeat maxY) ++
                 zip (repeat minX) [minY..maxY] ++
                 zip (repeat maxX) [minY..maxY]
-            possibleBorderPoints _ = error "possibleBorderPoints: wrong args"
 
 
             getLargestAreaSize :: Plane -> LocationsCount
@@ -211,9 +237,19 @@ main = mainWith myF
                 countPoints Nothing = Just 1
                 countPoints (Just counted) = Just (counted + 1)
 
-          -- solveSecondPuzzlePart = show . 
-          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
-            -- ++ "Second part solution is: " ++ secondPartSolution input
+          solveSecondPuzzlePart input = show $ findParticulartRegionSize maxTotalDistance pointsList planePointsList where
+            maxTotalDistance :: Int
+            --maxTotalDistance = 32
+            maxTotalDistance = 10000
+
+            planePointsList = makePlanePointsList boundingPointsExtremeCoords
+            boundingPointsExtremeCoords = getBoundingPointsExtremeCoords boundingPoints
+            boundingPoints = findBoundingPoints pointsList
+            pointsList = map strToPoint $ lines input
+
+
+          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n" ++
+            "Second part solution is: " ++ solveSecondPuzzlePart input
           myF = solvePuzzle
 
 -- Using only the Manhattan distance, determine the area around each coordinate by counting the number of integer X,Y locations that are closest to that coordinate (and aren't tied in distance to any other coordinate).
@@ -255,3 +291,36 @@ main = mainWith myF
 -- In this example, the areas of coordinates A, B, C, and F are infinite - while not shown here, their areas extend forever outside the visible grid. However, the areas of coordinates D and E are finite: D is closest to 9 locations, and E is closest to 17 (both including the coordinate's location itself). Therefore, in this example, the size of the largest area is 17.
 -- 
 -- What is the size of the largest area that isn't infinite?
+
+--- Part Two ---
+
+-- On the other hand, if the coordinates are safe, maybe the best you can do is try to find a region near as many coordinates as possible.
+-- 
+-- For example, suppose you want the sum of the Manhattan distance to all of the coordinates to be less than 32. For each location, add up the distances to all of the given coordinates; if the total of those distances is less than 32, that location is within the desired region. Using the same coordinates as above, the resulting region looks like this:
+-- 
+-- ..........
+-- .A........
+-- ..........
+-- ...###..C.
+-- ..#D###...
+-- ..###E#...
+-- .B.###....
+-- ..........
+-- ..........
+-- ........F.
+-- In particular, consider the highlighted location 4,3 located at the top middle of the region. Its calculation is as follows, where abs() is the absolute value function:
+-- 
+-- Distance to coordinate A: abs(4-1) + abs(3-1) =  5
+-- Distance to coordinate B: abs(4-1) + abs(3-6) =  6
+-- Distance to coordinate C: abs(4-8) + abs(3-3) =  4
+-- Distance to coordinate D: abs(4-3) + abs(3-4) =  2
+-- Distance to coordinate E: abs(4-5) + abs(3-5) =  3
+-- Distance to coordinate F: abs(4-8) + abs(3-9) = 10
+-- Total distance: 5 + 6 + 4 + 2 + 3 + 10 = 30
+-- Because the total distance to all coordinates (30) is less than 32, the location is within the region.
+-- 
+-- This region, which also includes coordinates D and E, has a total size of 16.
+-- 
+-- Your actual region will need to be much larger than this example, though, instead including all locations with a total distance of less than 10000.
+-- 
+-- What is the size of the region containing all locations which have a total distance to all given coordinates of less than 10000?
