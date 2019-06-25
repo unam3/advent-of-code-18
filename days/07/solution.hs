@@ -82,7 +82,7 @@ type ConcurrentState = (TimeToCompleteSteps, InstructionStepsToProcess, WorkInPr
 assignStepsToWorkers :: NumberOfWorkers -> InstructionStepsToProcess -> WorkInProgress -> WorkInProgress
 assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
     | maybeStep /= Nothing =
-        if freeWorkersCount > 0
+        if freeWorkersCount > 1
             then assignStepsToWorkers (freeWorkersCount - 1) newInstructionStepsToProcess newWorkInProgress
             else newWorkInProgress
     | otherwise = workInProgress where
@@ -91,18 +91,18 @@ assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
         stepTakesTime = Maybe.fromJust $ maybeStep >>= getStepAdditionaltime 
         newInstructionStepsToProcess = Map.delete (Maybe.fromJust maybeStep) instructionStepsToProcess
 
-howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
---howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
+--howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
+howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
 howLongWillItTake numberOfWorkers (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
     let freeWorkersCount = numberOfWorkers - (length workInProgress)
         wipAfterAssignments = assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
         newConcurrentState = (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
-    in case Map.null instructionStepsToProcess of
-    --in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 1 of
-        True -> timeToCompleteSteps + 1
+    --in case Map.null instructionStepsToProcess of
+    --in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 28 of
+    in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 2 of
+        --True -> timeToCompleteSteps + 1
+        True -> wipAfterAssignments
         False -> howLongWillItTake numberOfWorkers (takeConcurrentStep newConcurrentState)
-        --False -> thrd $ takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
-        --False -> wipAfterAssignments
 
 thrd :: (a, b, c) -> c
 thrd (_, _, x) = x
@@ -121,8 +121,8 @@ takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, workInProgre
         newWorkInProgress = subtractTimeToCompleteCurrentStep $ List.tail sortedWorkInProgress
 
 stepToTimeTuples :: [(Char, Int)]
-stepToTimeTuples = List.zip ['A'..'Z'] $ map (60 +) [1..26]
---stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
+--stepToTimeTuples = List.zip ['A'..'Z'] $ map (60 +) [1..26]
+stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
 
 getStepAdditionaltime :: Char -> Maybe Int
 getStepAdditionaltime step = List.lookup step stepToTimeTuples
@@ -152,7 +152,8 @@ main = mainWith solvePuzzle
 
           solveSecondPuzzlePart input = show $ howLongWillItTake numberOfWorkers initialConcurrentState where
           --solveSecondPuzzlePart input = howLongWillItTake 2 initialConcurrentState where
-            numberOfWorkers = 5
+            --numberOfWorkers = 5
+            numberOfWorkers = 2
             initialConcurrentState = (0, instructionStepsToProcess, [])
             instructionStepsToProcess = preprocessInstructionSteps input
 
