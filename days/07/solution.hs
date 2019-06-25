@@ -74,79 +74,70 @@ determineOrderOfSteps state@(_, instructionSteps) =
 
 type NumberOfWorkers = Int
 type TimeToCompleteSteps = Int
-type ElapsedTime = Int
-type StepTakesTime = Int
+type RemainingTime = Int
 
--- s/ElapsedTime, StepTakesTime/RemainingTime ?
-type WorkInProgress = [(ElapsedTime, StepTakesTime, Step)]
+type WorkInProgress = [(RemainingTime, Step)]
 type ConcurrentState = (TimeToCompleteSteps, InstructionStepsToProcess, WorkInProgress)
 
 assignStepsToWorkers :: NumberOfWorkers -> InstructionStepsToProcess -> WorkInProgress -> WorkInProgress
 assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
     | maybeStep /= Nothing =
-        if freeWorkersCount > 1
+        if freeWorkersCount > 0
             then assignStepsToWorkers (freeWorkersCount - 1) newInstructionStepsToProcess newWorkInProgress
             else newWorkInProgress
     | otherwise = workInProgress where
-        newWorkInProgress = ((0, stepTakesTime, Maybe.fromJust maybeStep): workInProgress)
+        newWorkInProgress = ((stepTakesTime, Maybe.fromJust maybeStep): workInProgress)
         maybeStep = whichStepToTake $ whichStepsAvailable instructionStepsToProcess
-        --step = Maybe.fromJust step
-        --stepTakesTime = 60 + (getStepAdditionaltime step)
-        stepTakesTime = Maybe.fromJust . getStepAdditionaltime $ Maybe.fromJust maybeStep
-        --stepTakesTime = step >>= getStepAdditionaltime
+        stepTakesTime = Maybe.fromJust $ maybeStep >>= getStepAdditionaltime 
         newInstructionStepsToProcess = Map.delete (Maybe.fromJust maybeStep) instructionStepsToProcess
 
-assignStepsToWorkers' :: NumberOfWorkers -> InstructionStepsToProcess -> WorkInProgress -> WorkInProgress
-assignStepsToWorkers' freeWorkersCount instructionStepsToProcess workInProgress =
-    if freeWorkersCount > 0 && step /= Nothing
-    -- here we need updated instructionStepsToProcess
-    then assignStepsToWorkers' (freeWorkersCount - 1) instructionStepsToProcess workInProgress
-    else newWorkInProgress where
-        newWorkInProgress = ((0, stepTakesTime, Maybe.fromJust step): workInProgress)
-        step = whichStepToTake $ whichStepsAvailable instructionStepsToProcess
-        --stepTakesTime = 60 + (getStepAdditionaltime step)
-        stepTakesTime = Maybe.fromJust $ getStepAdditionaltime (Maybe.fromJust step)
-
---howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
-howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
+howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
+--howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
 howLongWillItTake numberOfWorkers (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
     let freeWorkersCount = numberOfWorkers - (length workInProgress)
         wipAfterAssignments = assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
-    in case freeWorkersCount > 0 of
-        --True -> howLongWillItTake numberOfWorkers (takeConcurrentStep state)
-        True -> takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
-        False -> [(0,0,'Z')]
+        newConcurrentState = (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
+    in case Map.null instructionStepsToProcess of
+    --in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 1 of
+        True -> timeToCompleteSteps + 1
+        False -> howLongWillItTake numberOfWorkers (takeConcurrentStep newConcurrentState)
+        --False -> thrd $ takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
+        --False -> wipAfterAssignments
 
-sortByStepName :: WorkInProgress -> WorkInProgress
-sortByStepName = List.sortOn (\(_, _, step) -> step)
-
-sortByMinRemainingTime :: WorkInProgress -> WorkInProgress
-sortByMinRemainingTime = List.sortOn (\(elapsedTime, stepTakesTime, _) -> stepTakesTime - elapsedTime)
-
-elapsedTime (elapsedTime, stepTakesTime, _) = 
+thrd :: (a, b, c) -> c
+thrd (_, _, x) = x
 
 takeConcurrentStep :: ConcurrentState -> ConcurrentState
 takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
-    (+ timeToCompleteSteps, newInstructionStepsToProcess, newWorkInProgress) where
-        tripleWithStepToTake = sortByMinRemainingTime $ sortByStepName workInProgress
-
-        newInstructionStepsToProcess = Map.delete stepToTake instructionStepsToProcess
-        updatedInstructionStepsToProcessWithTakenStep =
-            Map.map (List.delete stepToTake) instructionStepsToProcessWithTakenStep
+    (newTimeToCompleteSteps, newInstructionStepsToProcess, newWorkInProgress) where
+        sortedWorkInProgress = sortByMinRemainingTime $ sortByStepName workInProgress
+        tupleWithStepToTake = head sortedWorkInProgress
+        timeToCompleteCurrentStep = fst tupleWithStepToTake
+        newTimeToCompleteSteps = timeToCompleteCurrentStep + timeToCompleteSteps
+        stepToTake = snd tupleWithStepToTake
+        newInstructionStepsToProcess =
+            Map.map (List.delete stepToTake) (Map.delete stepToTake instructionStepsToProcess)
+        subtractTimeToCompleteCurrentStep = List.map $ \(time, step) -> (time - timeToCompleteCurrentStep, step)
+        newWorkInProgress = subtractTimeToCompleteCurrentStep $ List.tail sortedWorkInProgress
 
 stepToTimeTuples :: [(Char, Int)]
-stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
+stepToTimeTuples = List.zip ['A'..'Z'] $ map (60 +) [1..26]
+--stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
 
 getStepAdditionaltime :: Char -> Maybe Int
 getStepAdditionaltime step = List.lookup step stepToTimeTuples
+
+sortByStepName :: WorkInProgress -> WorkInProgress
+sortByStepName = List.sortOn snd
+
+sortByMinRemainingTime :: WorkInProgress -> WorkInProgress
+sortByMinRemainingTime = List.sortOn fst
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
 interactWith f inputFile outputFile = do
     input <- readFile inputFile
     writeFile outputFile $ f input
-
---step_amount = zip ['A'..'Z'] [1..26]
 
 main :: IO ()
 main = mainWith solvePuzzle
@@ -159,8 +150,9 @@ main = mainWith solvePuzzle
           solveFirstPuzzlePart input =
             show . List.reverse . fst . determineOrderOfSteps $ ([], preprocessInstructionSteps input)
 
-          solveSecondPuzzlePart input = show $ howLongWillItTake 2 initialConcurrentState where
+          solveSecondPuzzlePart input = show $ howLongWillItTake numberOfWorkers initialConcurrentState where
           --solveSecondPuzzlePart input = howLongWillItTake 2 initialConcurrentState where
+            numberOfWorkers = 5
             initialConcurrentState = (0, instructionStepsToProcess, [])
             instructionStepsToProcess = preprocessInstructionSteps input
 
