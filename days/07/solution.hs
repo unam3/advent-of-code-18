@@ -77,32 +77,60 @@ type TimeToCompleteSteps = Int
 type ElapsedTime = Int
 type StepTakesTime = Int
 
+-- s/ElapsedTime, StepTakesTime/RemainingTime ?
 type WorkInProgress = [(ElapsedTime, StepTakesTime, Step)]
 type ConcurrentState = (TimeToCompleteSteps, InstructionStepsToProcess, WorkInProgress)
 
 assignStepsToWorkers :: NumberOfWorkers -> InstructionStepsToProcess -> WorkInProgress -> WorkInProgress
-assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress =
-    if freeWorkersCount > 1 && step /= Nothing
+assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
+    | maybeStep /= Nothing =
+        if freeWorkersCount > 1
+            then assignStepsToWorkers (freeWorkersCount - 1) newInstructionStepsToProcess newWorkInProgress
+            else newWorkInProgress
+    | otherwise = workInProgress where
+        newWorkInProgress = ((0, stepTakesTime, Maybe.fromJust maybeStep): workInProgress)
+        maybeStep = whichStepToTake $ whichStepsAvailable instructionStepsToProcess
+        --step = Maybe.fromJust step
+        --stepTakesTime = 60 + (getStepAdditionaltime step)
+        stepTakesTime = Maybe.fromJust . getStepAdditionaltime $ Maybe.fromJust maybeStep
+        --stepTakesTime = step >>= getStepAdditionaltime
+        newInstructionStepsToProcess = Map.delete (Maybe.fromJust maybeStep) instructionStepsToProcess
+
+assignStepsToWorkers' :: NumberOfWorkers -> InstructionStepsToProcess -> WorkInProgress -> WorkInProgress
+assignStepsToWorkers' freeWorkersCount instructionStepsToProcess workInProgress =
+    if freeWorkersCount > 0 && step /= Nothing
     -- here we need updated instructionStepsToProcess
-    then assignStepsToWorkers (freeWorkersCount - 1) instructionStepsToProcess workInProgress
+    then assignStepsToWorkers' (freeWorkersCount - 1) instructionStepsToProcess workInProgress
     else newWorkInProgress where
         newWorkInProgress = ((0, stepTakesTime, Maybe.fromJust step): workInProgress)
-        step = whichStepToTake instructionStepsToProcess
+        step = whichStepToTake $ whichStepsAvailable instructionStepsToProcess
         --stepTakesTime = 60 + (getStepAdditionaltime step)
-        stepTakesTime = getStepAdditionaltime step
+        stepTakesTime = Maybe.fromJust $ getStepAdditionaltime (Maybe.fromJust step)
 
-howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
-howLongWillItTake numberOfWorkers state@(_, instructionStepsToProcess, workInProgress) =
-    let freeWorkersCount = numberOfWorkers - (length workInProgress) in
-        case freeWorkersCount > 0 of
-            --True -> howLongWillItTake numberOfWorkers (takeConcurrentStep state stepToTake)
-            True -> assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
-            False -> state
+--howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
+howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
+howLongWillItTake numberOfWorkers (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
+    let freeWorkersCount = numberOfWorkers - (length workInProgress)
+        wipAfterAssignments = assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
+    in case freeWorkersCount > 0 of
+        --True -> howLongWillItTake numberOfWorkers (takeConcurrentStep state)
+        True -> takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
+        False -> [(0,0,'Z')]
 
-takeConcurrentStep :: State -> Step -> State
-takeConcurrentStep (stepsTaken, instructionStepsToProcess) stepToTake =
-    (stepToTake : stepsTaken, updatedInstructionStepsToProcessWithTakenStep) where
-        instructionStepsToProcessWithTakenStep = Map.delete stepToTake instructionStepsToProcess
+sortByStepName :: WorkInProgress -> WorkInProgress
+sortByStepName = List.sortOn (\(_, _, step) -> step)
+
+sortByMinRemainingTime :: WorkInProgress -> WorkInProgress
+sortByMinRemainingTime = List.sortOn (\(elapsedTime, stepTakesTime, _) -> stepTakesTime - elapsedTime)
+
+elapsedTime (elapsedTime, stepTakesTime, _) = 
+
+takeConcurrentStep :: ConcurrentState -> ConcurrentState
+takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
+    (+ timeToCompleteSteps, newInstructionStepsToProcess, newWorkInProgress) where
+        tripleWithStepToTake = sortByMinRemainingTime $ sortByStepName workInProgress
+
+        newInstructionStepsToProcess = Map.delete stepToTake instructionStepsToProcess
         updatedInstructionStepsToProcessWithTakenStep =
             Map.map (List.delete stepToTake) instructionStepsToProcessWithTakenStep
 
@@ -111,20 +139,6 @@ stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
 
 getStepAdditionaltime :: Char -> Maybe Int
 getStepAdditionaltime step = List.lookup step stepToTimeTuples
-
-{-
-
-Если только один шаг доступен - занимает полное время шага
-Если доступно несколько - загружаем свободных работников
-
-Как считать время для нескольких одновременных задач?
-
-
-Как считать время, если в фоне идет задача?
-
-notion of idle
--}
-
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
@@ -145,11 +159,13 @@ main = mainWith solvePuzzle
           solveFirstPuzzlePart input =
             show . List.reverse . fst . determineOrderOfSteps $ ([], preprocessInstructionSteps input)
 
-          --solveSecondPuzzlePart input = howLongWillItTake 2 concurrentState where
-          --  concurrentState = 
+          solveSecondPuzzlePart input = show $ howLongWillItTake 2 initialConcurrentState where
+          --solveSecondPuzzlePart input = howLongWillItTake 2 initialConcurrentState where
+            initialConcurrentState = (0, instructionStepsToProcess, [])
+            instructionStepsToProcess = preprocessInstructionSteps input
 
-          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
-          --solvePuzzle input = "Second part solution is: " ++ solveSecondPuzzlePart input
+          --solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
+          solvePuzzle input = "Second part solution is: " ++ solveSecondPuzzlePart input
             -- ++ "Second part solution is: " ++ solveSecondPuzzlePart input
 
 {-
