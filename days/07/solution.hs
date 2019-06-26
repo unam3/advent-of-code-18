@@ -55,6 +55,7 @@ whichStepsAvailable instructionStepsToProcess = case Map.keys $ Map.filter (==  
     steps -> Just steps
 
 whichStepToTake :: Maybe [Step] -> Maybe Step
+whichStepToTake (Just []) = Nothing
 whichStepToTake (Just steps) = Just (head steps)
 whichStepToTake _ = Nothing
 
@@ -87,21 +88,32 @@ assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
             else newWorkInProgress
     | otherwise = workInProgress where
         newWorkInProgress = ((stepTakesTime, Maybe.fromJust maybeStep): workInProgress)
-        maybeStep = whichStepToTake $ whichStepsAvailable instructionStepsToProcess
-        stepTakesTime = Maybe.fromJust $ maybeStep >>= getStepAdditionaltime 
+        maybeStep = whichStepToTake $ filterWIPSteps workInProgress (whichStepsAvailable instructionStepsToProcess)
+        stepTakesTime = Maybe.fromJust $ maybeStep >>= getStepAdditionalTime 
         newInstructionStepsToProcess = Map.delete (Maybe.fromJust maybeStep) instructionStepsToProcess
 
+filterWIPSteps :: WorkInProgress -> Maybe [Step] -> Maybe [Step]
+filterWIPSteps workInProgress (Just stepsAvailable) =
+    case List.filter (filterWorkInProgress workInProgress) stepsAvailable of
+        filteredStepsAvailable@(_:_) -> Just filteredStepsAvailable
+        [] -> Nothing
+filterWIPSteps _ _ = Nothing
+
+filterWorkInProgress :: WorkInProgress -> Step -> Bool
+filterWorkInProgress workInProgress = (\availableStep -> List.notElem availableStep (List.map snd workInProgress))
+
 --howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
-howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
+--howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
+howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> ConcurrentState
 howLongWillItTake numberOfWorkers (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
     let freeWorkersCount = numberOfWorkers - (length workInProgress)
         wipAfterAssignments = assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
         newConcurrentState = (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
-    --in case Map.null instructionStepsToProcess of
+    in case Map.null instructionStepsToProcess of
     --in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 28 of
-    in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 2 of
         --True -> timeToCompleteSteps + 1
-        True -> wipAfterAssignments
+        --True -> wipAfterAssignments
+        True -> newConcurrentState
         False -> howLongWillItTake numberOfWorkers (takeConcurrentStep newConcurrentState)
 
 thrd :: (a, b, c) -> c
@@ -111,7 +123,9 @@ takeConcurrentStep :: ConcurrentState -> ConcurrentState
 takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
     (newTimeToCompleteSteps, newInstructionStepsToProcess, newWorkInProgress) where
         sortedWorkInProgress = sortByMinRemainingTime $ sortByStepName workInProgress
-        tupleWithStepToTake = head sortedWorkInProgress
+        tupleWithStepToTake = case sortedWorkInProgress of
+            [] -> (0, 'Z')
+            _ -> head sortedWorkInProgress
         timeToCompleteCurrentStep = fst tupleWithStepToTake
         newTimeToCompleteSteps = timeToCompleteCurrentStep + timeToCompleteSteps
         stepToTake = snd tupleWithStepToTake
@@ -121,11 +135,11 @@ takeConcurrentStep (timeToCompleteSteps, instructionStepsToProcess, workInProgre
         newWorkInProgress = subtractTimeToCompleteCurrentStep $ List.tail sortedWorkInProgress
 
 stepToTimeTuples :: [(Char, Int)]
---stepToTimeTuples = List.zip ['A'..'Z'] $ map (60 +) [1..26]
-stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
+stepToTimeTuples = List.zip ['A'..'Z'] $ map (60 +) [1..26]
+--stepToTimeTuples = List.zip ['A'..'Z'] [1..26]
 
-getStepAdditionaltime :: Char -> Maybe Int
-getStepAdditionaltime step = List.lookup step stepToTimeTuples
+getStepAdditionalTime :: Char -> Maybe Int
+getStepAdditionalTime step = List.lookup step stepToTimeTuples
 
 sortByStepName :: WorkInProgress -> WorkInProgress
 sortByStepName = List.sortOn snd
@@ -152,8 +166,8 @@ main = mainWith solvePuzzle
 
           solveSecondPuzzlePart input = show $ howLongWillItTake numberOfWorkers initialConcurrentState where
           --solveSecondPuzzlePart input = howLongWillItTake 2 initialConcurrentState where
-            --numberOfWorkers = 5
-            numberOfWorkers = 2
+            numberOfWorkers = 5
+            --numberOfWorkers = 2
             initialConcurrentState = (0, instructionStepsToProcess, [])
             instructionStepsToProcess = preprocessInstructionSteps input
 
