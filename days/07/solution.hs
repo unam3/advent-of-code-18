@@ -14,8 +14,8 @@ type InstructionStepsToProcess = Map.Map Step Dependencies
 -- Step - dependencies, which key step resolves
 -- E is absent in keys
 -- fromList [('A',"BD"),('B',"E"),('C',"AF"),('D',"E"),('F',"E")]
-makeInstructionStepsToProcess :: (Step, Step) -> InstructionStepsToProcess -> InstructionStepsToProcess
-makeInstructionStepsToProcess (step, whichDependencyResolves) = Map.insertWith (++) step [whichDependencyResolves]
+--makeInstructionStepsToProcess :: (Step, Step) -> InstructionStepsToProcess -> InstructionStepsToProcess
+--makeInstructionStepsToProcess (step, whichDependencyResolves) = Map.insertWith (++) step [whichDependencyResolves]
 
 -- Step - dependencies steps to take key step
 -- C is absent in keys
@@ -94,26 +94,21 @@ assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
 
 filterWIPSteps :: WorkInProgress -> Maybe [Step] -> Maybe [Step]
 filterWIPSteps workInProgress (Just stepsAvailable) =
-    case List.filter (filterWorkInProgress workInProgress) stepsAvailable of
+    case (List.\\) stepsAvailable (List.map snd workInProgress) of
         filteredStepsAvailable@(_:_) -> Just filteredStepsAvailable
         [] -> Nothing
 filterWIPSteps _ _ = Nothing
 
-filterWorkInProgress :: WorkInProgress -> Step -> Bool
-filterWorkInProgress workInProgress = (\availableStep -> List.notElem availableStep (List.map snd workInProgress))
 
---howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
---howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> WorkInProgress
-howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> ConcurrentState
+howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> TimeToCompleteSteps
+--howLongWillItTake :: NumberOfWorkers -> ConcurrentState -> ConcurrentState
 howLongWillItTake numberOfWorkers (timeToCompleteSteps, instructionStepsToProcess, workInProgress) =
     let freeWorkersCount = numberOfWorkers - (length workInProgress)
         wipAfterAssignments = assignStepsToWorkers freeWorkersCount instructionStepsToProcess workInProgress
         newConcurrentState = (timeToCompleteSteps, instructionStepsToProcess, wipAfterAssignments)
     in case Map.null instructionStepsToProcess of
-    --in case Map.null instructionStepsToProcess || (length $ Map.keys instructionStepsToProcess) == 28 of
-        --True -> timeToCompleteSteps + 1
-        --True -> wipAfterAssignments
-        True -> newConcurrentState
+        True -> timeToCompleteSteps
+        --True -> newConcurrentState
         False -> howLongWillItTake numberOfWorkers (takeConcurrentStep newConcurrentState)
 
 thrd :: (a, b, c) -> c
@@ -165,15 +160,13 @@ main = mainWith solvePuzzle
             show . List.reverse . fst . determineOrderOfSteps $ ([], preprocessInstructionSteps input)
 
           solveSecondPuzzlePart input = show $ howLongWillItTake numberOfWorkers initialConcurrentState where
-          --solveSecondPuzzlePart input = howLongWillItTake 2 initialConcurrentState where
             numberOfWorkers = 5
             --numberOfWorkers = 2
             initialConcurrentState = (0, instructionStepsToProcess, [])
             instructionStepsToProcess = preprocessInstructionSteps input
 
-          --solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
-          solvePuzzle input = "Second part solution is: " ++ solveSecondPuzzlePart input
-            -- ++ "Second part solution is: " ++ solveSecondPuzzlePart input
+          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
+            ++ "Second part solution is: " ++ solveSecondPuzzlePart input
 
 {-
 You find yourself standing on a snow-covered coastline; apparently, you landed a little off course. The region is too hilly to see the North Pole from here, but you do spot some Elves that seem to be trying to unpack something that washed ashore. It's quite cold out, so you decide to risk creating a paradox by asking them for directions.
