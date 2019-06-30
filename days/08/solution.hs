@@ -17,26 +17,27 @@ getSum :: Int -> Int -> [Int] -> (Int, [Int])
 getSum siblingsToProcessCount parentMetadataEntriesQuantity (childNodesQuantity:metadataEntriesQuantity:numbersList) =
     case siblingsToProcessCount of
         1 -> case childNodesQuantity of
-            -- (1)
+            -- testInput1
             0 -> (sum metadata + sum parentMetadata, numbersListAfterParentMetadata) where
                 (metadata, numbersListRest) = splitAt metadataEntriesQuantity numbersList
                 (parentMetadata, numbersListAfterParentMetadata) = splitAt parentMetadataEntriesQuantity numbersListRest
-            -- (3, 31)
+            -- 3, 31
             _ -> (metadata + sum parentMetadata, childRest) where
                 (metadata, numbersListRest) = getSum childNodesQuantity metadataEntriesQuantity numbersList
                 (parentMetadata, childRest) = splitAt parentMetadataEntriesQuantity numbersListRest
         _ -> case childNodesQuantity of
-            -- (2, 21)
+            -- 2, 21
             0 -> (sum metadata + siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) where
                 (metadata, numbersListRest) = splitAt metadataEntriesQuantity numbersList
                 (siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) =
                     getSum (siblingsToProcessCount - 1) parentMetadataEntriesQuantity numbersListRest
-            -- (4)
+            -- 4, 41
             _ -> (metadata + siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) where
                 (metadata, afterThisNodeAndItsChildrenNumbersListRest) =
                     getSum childNodesQuantity metadataEntriesQuantity numbersList
                 (siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) =
                     getSum (siblingsToProcessCount - 1) parentMetadataEntriesQuantity afterThisNodeAndItsChildrenNumbersListRest
+getSum _ _ _ = (0, [])
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
