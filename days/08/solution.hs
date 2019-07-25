@@ -3,65 +3,68 @@ import qualified Data.List as List
 --import qualified Data.Map.Strict as Map
 --import qualified Data.Maybe as Maybe
 
--- metadataEntriesQuantity - after the children in current branch
+-- metadataEntriesQtt - after the children in current branch
 treeMetadataEntriesSum :: [Int] -> (Int, [Int])
-treeMetadataEntriesSum (childNodesQtt : metadataEntriesQuantity : numbersListRest) =
-    let (childrenMetadataSum, etc) = getSum childNodesQtt metadataEntriesQuantity numbersListRest
+treeMetadataEntriesSum (childNodesQtt : metadataEntriesQtt : numbersListRest) =
+    let (childrenMetadataSum, etc) = getSum childNodesQtt metadataEntriesQtt numbersListRest
     in case etc of
         [] -> (childrenMetadataSum, etc)
         _ -> (-1, etc)
 treeMetadataEntriesSum _ = (0, [])
 
--- siblingsToProcessCount - to process
-getSum :: Int -> Int -> [Int] -> (Int, [Int])
-getSum siblingsToProcessCount parentMetadataEntriesQuantity (childNodesQuantity:metadataEntriesQuantity:numbersList) =
+type Sum = Int
+type NumbersList = [Int]
+
+getSum :: Int -> Int -> NumbersList -> (Sum, NumbersList)
+getSum siblingsToProcessCount parentMetadataEntriesQuantity (childNodesQuantity:metadataEntriesQtt:numbersList) =
     case siblingsToProcessCount of
         1 -> case childNodesQuantity of
             -- testInput1
             0 -> (sum metadata + sum parentMetadata, numbersListAfterParentMetadata) where
-                (metadata, numbersListRest) = splitAt metadataEntriesQuantity numbersList
+                (metadata, numbersListRest) = splitAt metadataEntriesQtt numbersList
                 (parentMetadata, numbersListAfterParentMetadata) = splitAt parentMetadataEntriesQuantity numbersListRest
             -- 3, 31
             _ -> (metadata + sum parentMetadata, childRest) where
-                (metadata, numbersListRest) = getSum childNodesQuantity metadataEntriesQuantity numbersList
+                (metadata, numbersListRest) = getSum childNodesQuantity metadataEntriesQtt numbersList
                 (parentMetadata, childRest) = splitAt parentMetadataEntriesQuantity numbersListRest
         _ -> case childNodesQuantity of
             -- 2, 21
             0 -> (sum metadata + siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) where
-                (metadata, numbersListRest) = splitAt metadataEntriesQuantity numbersList
+                (metadata, numbersListRest) = splitAt metadataEntriesQtt numbersList
                 (siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) =
                     getSum (siblingsToProcessCount - 1) parentMetadataEntriesQuantity numbersListRest
             -- 4, 41
             _ -> (metadata + siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) where
                 (metadata, afterThisNodeAndItsChildrenNumbersListRest) =
-                    getSum childNodesQuantity metadataEntriesQuantity numbersList
+                    getSum childNodesQuantity metadataEntriesQtt numbersList
                 (siblingsToTheRightMetadataSum, siblingsToTheRightNumbersListRest) =
                     getSum (siblingsToProcessCount - 1) parentMetadataEntriesQuantity afterThisNodeAndItsChildrenNumbersListRest
 getSum _ _ _ = (0, [])
 
---findRootValue :: [Int] -> (Int, [Int])
---findRootValue :: [Int] -> ([Int], [Int])
---findRootValue :: [Int] -> ([[Int]], [Int])
-findRootValue :: [Int] -> ([(Int, Int)], [Int])
-findRootValue (childNodesQtt : metadataEntriesQtt : numbersListRest) =
-    case childNodesQtt of
-        --0 -> ([sum numbersListRest], [])
-        --0 -> ([[-1]], [])
-        0 -> ([(-1, -1)], [])
-        --_ -> getMetadata childNodesQtt metadataEntriesQtt numbersListRest
-        _ -> getNodeValue childNodesQtt metadataEntriesQtt numbersListRest nodeIndex childrenToProcess where
-            nodeIndex = 1
-            childrenToProcess = processMetadata childNodesQtt
-                . fst
-                . getMetadata childNodesQtt metadataEntriesQtt rest
-        --_ -> let (collected, untouched) = findValue childNodesQtt metadataEntriesQuantity numbersListRest []
-        --    in case untouched of
-        --        [] -> (value, unparsedChildren)
-        --        _ -> (-1, unparsedChildren)
-findRootValue _ = ([], [])
+-- metadata entries
+type Metadata = [Int]
+--type NodeValue = Int
+type NodeValue = String
+
+--findRootValue :: NumbersList -> (Int, [Int])
+--findRootValue :: NumbersList -> ([Int], [Int])
+--findRootValue :: NumbersList -> ([[Int]], [Int])
+findRootValue :: NumbersList -> (NodesToProcess, NumbersList, NodeValue)
+--findRootValue (childNodesQtt : metadataEntriesQtt : numbersListRest) = 
+findRootValue numbersList@(_ : _ : _) = 
+    getNodeValue childNodesQtt metadataEntriesQtt (numbersList ++ metadata) firstNodeIndex childrenToProcess where
+        childNodesQtt = 1 -- on the first level we can have only one node
+        metadataEntriesQtt = 1
+        metadata = [1]
+        firstNodeIndex = 1
+        childrenToProcess = []
+findRootValue _ = ([], [], "-1")
 
 
-getMetadata :: Int -> Int -> [Int] -> ([Int], [Int])
+getMetadata :: Int -> Int -> NumbersList -> (Metadata, NumbersList)
+
+getMetadata 0 parentMetadataEntriesQtt rest = splitAt parentMetadataEntriesQtt rest
+
 getMetadata siblingsToProcessQtt parentMetadataEntriesQtt (childNodesQtt:metadataEntriesQtt:numbersList) =
     case siblingsToProcessQtt of
         1 -> case childNodesQtt of
@@ -99,53 +102,95 @@ getMetadata siblingsToProcessQtt parentMetadataEntriesQtt (childNodesQtt:metadat
 getMetadata _ _ _ = ([], [])
 
 
-processMetadata :: Int -> [Int] -> [(Int, Int)]
-processMetadata siblingsToProcessQtt = List.map (\x -> (head x, length x))
+type ChildIndex = Int
+type Count = Int
+type NodesToProcess = [(ChildIndex, Count)]
+
+processMetadata :: Int -> Metadata -> NodesToProcess
+processMetadata unprocessedNodesCount = List.map (\x -> (head x, length x))
     . List.group
-    . List.filter (\index -> index > 0 && index <= siblingsToProcessQtt)
+    -- A metadata entry of 0 does not refer to any child node.
+    -- If a referenced child node does not exist, that reference is skipped.
+    . List.filter (\index -> index > 0 && index <= unprocessedNodesCount)
     . List.sort 
 
-getNodeValue :: Int -> Int -> [Int] -> Int -> [(Int,Int)] -> (Int, [Int])
-getNodeValue siblingsToProcessQtt parentMetadataEntriesQtt rest@(childNodesQtt:metadataEntriesQtt:numbersList) index childrenToProcess = (123, childrenToProcess) where
-    --value = (processMetadata siblingsToProcessQtt parentMetadata, [])
-    --valueAndNumberList = case lookup index childrenToProcess of
-    --    Nothing -> 
-    --    Just multiplier ->  
+getChildlessNodeValue :: Int -> NumbersList -> NodesToProcess -> (NodesToProcess, NumbersList, NodeValue)
+getChildlessNodeValue metadataEntriesQtt numbersList nodesToProcessArg =
+    --(\(metadata, numbersListRest) -> (nodesToProcessArg, numbersListRest, sum metadata)) $
+    (\(metadata, numbersListRest) -> (
+            nodesToProcessArg,
+            numbersListRest,
+            List.concat $ List.intersperse "+" $ map show metadata
+        )) $ splitAt metadataEntriesQtt numbersList
 
---        case siblingsToProcessQtt of
---            1 -> case childNodesQtt of
---                -- testInput1
---                0 -> (
---                        --[childNodesQtt, metadataEntriesQtt] ++ metadataAndParendMetadata,
---                        parentMetadata,
---                        numbersListAfterParentMetadata
---                    ) where
---                    --(metadataAndParendMetadata, numbersListAfterParentMetadata) =
---                    --    splitAt (metadataEntriesQtt + parentMetadataEntriesQtt) numbersList
---                    (parentMetadata, numbersListAfterParentMetadata) =
---                        splitAt parentMetadataEntriesQtt $ drop metadataEntriesQtt numbersList
---                -- 3, 31
---                _ -> (parentMetadata, childRest) where
---                    (_, numbersListRest) = getNodeValue childNodesQtt metadataEntriesQtt numbersList
---                    (parentMetadata, childRest) = splitAt parentMetadataEntriesQtt numbersListRest
---            _ -> case childNodesQtt of
---                -- 2, 21
---                0 -> (
---                        --[childNodesQtt, metadataEntriesQtt] ++ metadata ++ restTranssform,
---                        parentMetadata,
---                        numbersListAfterSibling
---                    ) where
---                    --(metadata, numbersListRest) = splitAt metadataEntriesQtt numbersList
---                    (parentMetadata, numbersListAfterSibling) =
---                        getNodeValue (siblingsToProcessQtt - 1) parentMetadataEntriesQtt $
---                            drop metadataEntriesQtt numbersList
---                -- 4, 41
---                _ -> (parentMetadata, siblingsToTheRightNumbersListRest) where
---                    (_, afterThisNodeAndItsChildrenNumbersListRest) =
---                        getNodeValue childNodesQtt metadataEntriesQtt numbersList
---                    (parentMetadata, siblingsToTheRightNumbersListRest) =
---                        getNodeValue (siblingsToProcessQtt - 1) parentMetadataEntriesQtt afterThisNodeAndItsChildrenNumbersListRest
-getNodeValue _ _ _ = ([], [])
+getNodeValue :: Int -> Int -> NumbersList -> Int -> NodesToProcess -> (NodesToProcess, NumbersList, NodeValue)
+getNodeValue unprocessedNodesCount parentMetadataEntriesQtt rest@(childNodesQtt:metadataEntriesQtt:numbersList) index nodesToProcessArg = valueAndNumbersList where
+    hasNoChildren = childNodesQtt == 0
+    --noNodesToProcess = unprocessedNodesCount == 0
+    nodesToProcess = if index == 1
+        then processMetadata unprocessedNodesCount . fst $
+            getMetadata unprocessedNodesCount parentMetadataEntriesQtt rest
+        else nodesToProcessArg
+
+    -- pass next element technique:
+    -- getMetadata 1 5 [0, 1, 9,0,1,7,1,8]
+    -- ([0,1,7,1,8],[])
+    numbersListRestIfNoSuchIndex = snd $ getMetadata childNodesQtt metadataEntriesQtt numbersList
+    nextNodesToProcess multiplier = List.deleteBy (==) (index, multiplier) nodesToProcess
+    hasUnprocessedNodesAhead = (unprocessedNodesCount - 1) > 0
+    --nextNodesToProcess = List.filter (\x -> (/= index) . fst) nodesToProcess
+
+    valueAndNumbersList = case lookup index nodesToProcess of
+        Nothing -> if hasUnprocessedNodesAhead
+            then getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt numbersListRestIfNoSuchIndex (index+1) nodesToProcess
+            --then (nodesToProcess, rest, "-7")
+            --then (nodesToProcess, rest, show unprocessedNodesCount)
+            else ([], [], "0")
+        -- умножить на nodeValue из результата и пройти вправо
+        Just multiplier -> (\(nodesToProcess', numbersList', nodeValue') ->
+                (
+                    nodesToProcess',
+                    --nodesToProcess,
+                    numbersList',
+                    --numbersList,
+                    --multiplier * nodeValue'
+                    if hasNoChildren
+                        then nodeValue'
+                        else show multiplier ++ " * " ++ nodeValue'
+                )
+            ) $ if hasNoChildren
+                then if hasUnprocessedNodesAhead
+                    --then (nodesToProcess, numbersList, "-3")
+                    then (\(x, y, z) -> (x, y, "(" ++ z ++ " + " ++ ifChildlessNodeValue ++ ")")) $
+                        getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt ifChildlessNumbersList (index+1) ifChildlessNodesToProcess
+                    --else ([], [-3], "-33")
+                    else ifChildlessResults
+                --else getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt numbersList (index+1) (nextNodesToProcess multiplier)
+                else if hasUnprocessedNodesAhead
+                    --then (nodesToProcess, (-4:rest), "-4")
+                    then (\(x, y, z) -> (x, y, "(" ++ z ++ " + " ++ childNodeValue ++ ")")) $
+                    --then (\(x, y, z) -> (x, y, "(" ++ z ++ " || " ++ dbgS ++ " + " ++ childNodeValue ++ ")")) $
+                        getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt numbersListRestIfNoSuchIndex (index+1) (nextNodesToProcess multiplier)
+
+                    else childNodeResults where
+                    --else (nodesToProcess, [index], "-44")
+                    --else (nodesToProcess, numbersList, "-44")
+            ifChildlessResults@(ifChildlessNodesToProcess, ifChildlessNumbersList, ifChildlessNodeValue) =
+                (\(nodesToProcess', numbersList', nodeValue') ->
+                    (nodesToProcess', numbersList', show multiplier ++ " * " ++ nodeValue')) $
+                        getChildlessNodeValue metadataEntriesQtt numbersList (nextNodesToProcess multiplier)
+            childNodeResults@(childNodesToProcess, childNumbersList, childNodeValue) =
+                getNodeValue childNodesQtt metadataEntriesQtt numbersList 1 []
+            dbgS = "[" ++ show (nextNodesToProcess multiplier) ++
+                show ((unprocessedNodesCount-1):parentMetadataEntriesQtt:(index+1):[]) ++ " :: " ++
+                show (childNumbersList) ++ "]"
+
+
+getNodeValue _ _ numbersList@[1] _ nodesToProcessArg = (nodesToProcessArg, numbersList, "0")
+
+--getNodeValue _ _ numbersList index nodesToProcessArg = (nodesToProcessArg, numbersList, "-2: " ++ show index)
+--getNodeValue _ _ numbersList index nodesToProcessArg = (nodesToProcessArg, numbersList, "wtf")
+getNodeValue _ _ numbersList index nodesToProcessArg = (nodesToProcessArg, numbersList, "<" ++ show numbersList ++ ">")
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
 interactWith f inputFile outputFile = do
@@ -165,7 +210,7 @@ main = mainWith solvePuzzle
 
           solveSecondPuzzlePart input = show $ findRootValue (map (read :: String -> Int) $ words $ head $ lines input)
 
-          --solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
+         -- solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
           solvePuzzle input = "Second part solution is: " ++ solveSecondPuzzlePart input
 
 {-
@@ -192,6 +237,8 @@ Each child node is itself a node that has its own header, child nodes, and metad
 A----------------------------------
     B----------- C-----------
                      D-----
+
+
 In this example, each node of the tree is also marked with an underline starting with a letter for easier identification. In it, there are four nodes:
 
 A, which has 2 child nodes (B, C) and 3 metadata entries (1, 1, 2).
