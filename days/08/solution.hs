@@ -147,43 +147,44 @@ getNodeValue unprocessedNodesCount parentMetadataEntriesQtt rest@(childNodesQtt:
             --then (nodesToProcess, rest, show unprocessedNodesCount)
             else ([], [], "0")
         -- умножить на nodeValue из результата и пройти вправо
-        Just multiplier -> (\(nodesToProcess', numbersList', nodeValue') ->
+        Just multiplier -> (\(nodesToProcess', numbersList', nodeValue':nodeValueRight') ->
                 (
                     nodesToProcess',
                     --nodesToProcess,
                     numbersList',
                     --numbersList,
                     --multiplier * nodeValue'
-                    if hasNoChildren
-                        then nodeValue'
-                        else show multiplier ++ " * " ++ nodeValue'
+                    if nodeValueRight' == []
+                        then if hasNoChildren
+                            then nodeValue'
+                            else show multiplier ++ " ** {" ++ nodeValue' ++ "}"
+                        else if hasNoChildren
+                            then nodeValue' ++ " ++ " ++ head nodeValueRight'
+                            else show multiplier ++ " *** {-" ++ nodeValue' ++ "-}" ++ " ++ " ++ head nodeValueRight'
                 )
             ) $ if hasNoChildren
                 then if hasUnprocessedNodesAhead
                     --then (nodesToProcess, numbersList, "-3")
-                    then (\(x, y, z) -> (x, y, "(" ++ z ++ " + " ++ ifChildlessNodeValue ++ ")")) $
+                    then (\(x, y, z) -> (x, y, [head ifChildlessNodeValue, z])) $
                         getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt ifChildlessNumbersList (index+1) ifChildlessNodesToProcess
                     --else ([], [-3], "-33")
                     else ifChildlessResults
                 --else getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt numbersList (index+1) (nextNodesToProcess multiplier)
                 else if hasUnprocessedNodesAhead
                     --then (nodesToProcess, (-4:rest), "-4")
-                    then (\(x, y, z) -> (x, y, "(" ++ z ++ " + " ++ childNodeValue ++ ")")) $
+                    then (\(x, y, z) -> (x, y, ["(" ++ childNodeValue ++ ")", z])) $
                     --then (\(x, y, z) -> (x, y, "(" ++ z ++ " || " ++ dbgS ++ " + " ++ childNodeValue ++ ")")) $
                         getNodeValue (unprocessedNodesCount-1) parentMetadataEntriesQtt numbersListRestIfNoSuchIndex (index+1) (nextNodesToProcess multiplier)
 
-                    else childNodeResults where
+                    else (\(x, y, z) -> (x, y, [z])) $ childNodeResults where
                     --else (nodesToProcess, [index], "-44")
                     --else (nodesToProcess, numbersList, "-44")
             ifChildlessResults@(ifChildlessNodesToProcess, ifChildlessNumbersList, ifChildlessNodeValue) =
                 (\(nodesToProcess', numbersList', nodeValue') ->
-                    (nodesToProcess', numbersList', show multiplier ++ " * " ++ nodeValue')) $
+                    (nodesToProcess', numbersList', [show multiplier ++ " * " ++ nodeValue'])) $
                         getChildlessNodeValue metadataEntriesQtt numbersList (nextNodesToProcess multiplier)
             childNodeResults@(childNodesToProcess, childNumbersList, childNodeValue) =
                 getNodeValue childNodesQtt metadataEntriesQtt numbersList 1 []
-            dbgS = "[" ++ show (nextNodesToProcess multiplier) ++
-                show ((unprocessedNodesCount-1):parentMetadataEntriesQtt:(index+1):[]) ++ " :: " ++
-                show (childNumbersList) ++ "]"
 
 
 getNodeValue _ _ numbersList@[1] _ nodesToProcessArg = (nodesToProcessArg, numbersList, "0")
