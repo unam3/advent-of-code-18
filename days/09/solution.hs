@@ -41,16 +41,27 @@ takeTurn playersNumber terminalMarble circle playerNumber currentMarblePosition 
             if mod marbleToBePlaced 23 == 0
                 then
                     let {
-                        (left, right) = splitAt (currentMarblePosition-7) circle;
+                        difference = currentMarblePosition - 7;
+                        canSplitWithoutOverlapingCircle = difference > 0;
+                        positionBeforeSplit = if canSplitWithoutOverlapingCircle
+                            then difference
+                            else length circle + difference;
+                        (left, right) = splitAt positionBeforeSplit circle;
                         marbleToBePlacedBeforePosition = length left;
-                        removedMarbleNumber = head right;
-                        newCircle = left ++ tail right;
+                        emptyRight = difference == 0;
+                        removedMarbleNumber = if emptyRight
+                            then last circle
+                            else head right;
+                        newCircle = if emptyRight
+                            then init left
+                            else left ++ tail right;
                         newScore = Map.insertWith (++) playerNumber [marbleToBePlaced, removedMarbleNumber] score;
                     } in takeTurn playersNumber terminalMarble newCircle nextPlayerNumber marbleToBePlacedBeforePosition (marbleToBePlaced+1) newScore
                     
                 else let {
                     -- 1 is first element index because of splitAt
-                    marbleToBePlacedBeforePosition = if length circle - (currentMarblePosition+1) > 0
+                    canPlaceToTheRight = length circle - (currentMarblePosition + 1) > 0;
+                    marbleToBePlacedBeforePosition = if canPlaceToTheRight
                         then currentMarblePosition + 2
                         else 1;
                     (left, right) = splitAt marbleToBePlacedBeforePosition circle;
@@ -58,11 +69,16 @@ takeTurn playersNumber terminalMarble circle playerNumber currentMarblePosition 
                     nextPlayerNumber = getNextPlayerNumber playersNumber playerNumber
 
     
-getWinningScore :: (PlayersNumber, LastMarbleWorth, HighScore) -> (Circle, Score)
-getWinningScore (playersNumber, _, _) =
-    takeTurn playersNumber terminalMarble initialCircle playerNumber currentMarblePosition marbleToBePlaced score where
+getHighScore :: Score -> Int
+getHighScore = sum . snd . last . (List.sortOn (sum . snd)) . Map.toList
+
+getWinningScore :: (PlayersNumber, LastMarbleWorth, HighScore) -> Int
+-- getWinningScore :: (PlayersNumber, LastMarbleWorth, HighScore) -> (Circle, Score)
+getWinningScore (playersNumber, lastMarbleWorth, _) =
+     getHighScore . snd $ takeTurn playersNumber terminalMarble initialCircle playerNumber currentMarblePosition marbleToBePlaced score where
+     --takeTurn playersNumber terminalMarble initialCircle playerNumber currentMarblePosition marbleToBePlaced score where
         initialCircle = [0, 2, 1] :: Circle
-        terminalMarble = 25 + 1
+        terminalMarble = lastMarbleWorth + 1
         currentMarblePosition = 1
         marbleToBePlaced = 3
         playerNumber = 3
@@ -82,7 +98,6 @@ main = mainWith solvePuzzle
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . parseInput 
           solveFirstPuzzlePart = show . getWinningScore . parseInput
 
           --solveSecondPuzzlePart input = show $ findRootValue (map (read :: String -> Int) $ words $ head $ lines input)
