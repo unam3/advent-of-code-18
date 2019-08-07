@@ -1,10 +1,11 @@
 import System.Environment (getArgs)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
+import qualified Data.Sequence as Seq
 
 
 type MarbleNumber = Int
-type Circle = [MarbleNumber]
+type Circle = Seq.Seq MarbleNumber
 type CurrentMarblePosition = Int
 type MarbleToBePlaced = MarbleNumber
 
@@ -34,50 +35,47 @@ getNextPlayerNumber playersNumber playerNumber = if playerNumber == playersNumbe
     else playerNumber + 1
 
 takeTurn :: PlayersNumber -> TerminalMarble -> Circle -> PlayerNumber -> CurrentMarblePosition -> MarbleToBePlaced -> Score -> (Circle, Score)
-takeTurn playersNumber terminalMarble circle playerNumber currentMarblePosition marbleToBePlaced score = 
-    if terminalMarble == marbleToBePlaced
-        then (circle, score)
-        else
-            if mod marbleToBePlaced 23 == 0
-                then
-                    let {
-                        difference = currentMarblePosition - 7;
-                        canSplitWithoutOverlapingCircle = difference > 0;
-                        positionBeforeSplit = if canSplitWithoutOverlapingCircle
-                            then difference
-                            else length circle + difference;
-                        (left, right) = splitAt positionBeforeSplit circle;
-                        marbleToBePlacedBeforePosition = length left;
-                        emptyRight = difference == 0;
-                        removedMarbleNumber = if emptyRight
-                            then last circle
-                            else head right;
-                        newCircle = if emptyRight
-                            then init left
-                            else left ++ tail right;
-                        newScore = Map.insertWith (++) playerNumber [marbleToBePlaced, removedMarbleNumber] score;
-                    } in takeTurn playersNumber terminalMarble newCircle nextPlayerNumber marbleToBePlacedBeforePosition (marbleToBePlaced+1) newScore
-                    
-                else let {
-                    -- 1 is first element index because of splitAt
-                    canPlaceToTheRight = length circle - (currentMarblePosition + 1) > 0;
-                    marbleToBePlacedBeforePosition = if canPlaceToTheRight
-                        then currentMarblePosition + 2
-                        else 1;
-                    (left, right) = splitAt marbleToBePlacedBeforePosition circle;
-                } in takeTurn playersNumber terminalMarble (left ++ [marbleToBePlaced] ++ right) nextPlayerNumber marbleToBePlacedBeforePosition (marbleToBePlaced+1) score where
-                    nextPlayerNumber = getNextPlayerNumber playersNumber playerNumber
+takeTurn playersNumber terminalMarble circle playerNumber currentMarblePosition marbleToBePlaced score
+    | terminalMarble == marbleToBePlaced = (circle, score)
+    | mod marbleToBePlaced 23 == 0 =
+        let {
+            difference = currentMarblePosition - 7;
+            canSplitWithoutOverlapingCircle = difference > 0;
+            positionBeforeSplit = if canSplitWithoutOverlapingCircle
+                then difference
+                else Seq.length circle + difference;
+            (left, right) = Seq.splitAt positionBeforeSplit circle;
+            marbleToBePlacedBeforePosition = Seq.length left;
+            emptyRight = difference == 0;
+            removedMarbleNumber = if emptyRight
+                then Seq.index circle $ Seq.length circle - 1
+                else Seq.index right 0;
+            newCircle = if emptyRight
+                then Seq.take (Seq.length circle - 2) left
+                else left Seq.>< Seq.drop 1 right;
+            newScore = Map.insertWith (++) playerNumber [marbleToBePlaced, removedMarbleNumber] score;
+        } in takeTurn playersNumber terminalMarble newCircle nextPlayerNumber marbleToBePlacedBeforePosition (marbleToBePlaced+1) newScore
+            
+    | otherwise = let {
+        -- 1 is first element index because of splitAt
+        canPlaceToTheRight = length circle - (currentMarblePosition + 1) > 0;
+        marbleToBePlacedBeforePosition = if canPlaceToTheRight
+            then currentMarblePosition + 2
+            else 1;
+        (left, right) = Seq.splitAt marbleToBePlacedBeforePosition circle;
+    } in takeTurn playersNumber terminalMarble (left Seq.>< Seq.singleton marbleToBePlaced Seq.>< right) nextPlayerNumber marbleToBePlacedBeforePosition (marbleToBePlaced+1) score
+    where nextPlayerNumber = getNextPlayerNumber playersNumber playerNumber
 
     
 getHighScore :: Score -> Int
-getHighScore = sum . snd . last . (List.sortOn (sum . snd)) . Map.toList
+getHighScore = sum . snd . last . List.sortOn (sum . snd) . Map.toList
 
 getWinningScore :: (PlayersNumber, LastMarbleWorth, HighScore) -> Int
 -- getWinningScore :: (PlayersNumber, LastMarbleWorth, HighScore) -> (Circle, Score)
 getWinningScore (playersNumber, lastMarbleWorth, _) =
      getHighScore . snd $ takeTurn playersNumber terminalMarble initialCircle playerNumber currentMarblePosition marbleToBePlaced score where
      --takeTurn playersNumber terminalMarble initialCircle playerNumber currentMarblePosition marbleToBePlaced score where
-        initialCircle = [0, 2, 1] :: Circle
+        initialCircle = Seq.fromList [0, 2, 1] :: Circle
         terminalMarble = lastMarbleWorth + 1
         currentMarblePosition = 1
         marbleToBePlaced = 3
