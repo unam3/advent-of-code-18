@@ -31,8 +31,11 @@ makeTuple :: [Coordinate] -> PointOfLight
 makeTuple [px, py, vx, vy] = (px, py, vx, vy)
 makeTuple _ = (-1, -1, -1, -1)
 
-takeStep :: [PointOfLight] -> [PointOfLight]
-takeStep = map takeStep' where
+type Second = Int
+
+takeStep :: ([PointOfLight], Second) -> ([PointOfLight], Second)
+takeStep (pointsOfLight, second) = (map takeStep' pointsOfLight, nextSecond) where
+    nextSecond = second + 1
     takeStep' :: PointOfLight -> PointOfLight
     takeStep' (px, py, vx, vy) = (px + vx, py + vy, vx, vy)
 
@@ -73,13 +76,16 @@ findStraightVerticalLine = list where
 extractTransformPositionPoints :: PointOfLight -> (Coordinate, Coordinate)
 extractTransformPositionPoints (x, y, _, _) = (x, -y)
 
-findStateWithStraightVerticalLines :: [PointOfLight] -> [(Coordinate, Coordinate)]
-findStateWithStraightVerticalLines pointsOfLight = let {
-        nextPointsOfLight = takeStep pointsOfLight;
+findStateWithStraightVerticalLines :: [PointOfLight] -> ([(Coordinate, Coordinate)], Second)
+findStateWithStraightVerticalLines pointsOfLight = findStateWithStraightVerticalLines' pointsOfLight 0
+
+findStateWithStraightVerticalLines' :: [PointOfLight] -> Second -> ([(Coordinate, Coordinate)], Second)
+findStateWithStraightVerticalLines' pointsOfLight second = let {
+        (nextPointsOfLight, nextSecond) = takeStep (pointsOfLight, second);
         straightLinesList = findStraightVerticalLine nextPointsOfLight;
     } in case null straightLinesList of
-        True -> findStateWithStraightVerticalLines nextPointsOfLight
-        False -> map extractTransformPositionPoints nextPointsOfLight
+        True -> findStateWithStraightVerticalLines' nextPointsOfLight nextSecond
+        False -> (map extractTransformPositionPoints nextPointsOfLight, nextSecond)
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
@@ -95,9 +101,10 @@ main = mainWith solvePuzzle
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          --solveFirstPuzzlePart = show . findStraightVerticalLine . takeStep  . takeStep  . takeStep . parseInput
-          solveFirstPuzzlePart = show . findStateWithStraightVerticalLines . parseInput
-          --solveSecondPuzzlePart = show . getWinningScore 100 . parseInput
+          solvePuzzle input = "First part solution is: " ++ firstPuzzlePart ++ "\n"
+               ++ "Second part solution is: " ++ secondPuzzlePart where
+                  (pointsToPlotMessage, secondsToWaitMessageAppearance) =
+                    findStateWithStraightVerticalLines $ parseInput input
+                  firstPuzzlePart = show pointsToPlotMessage
+                  secondPuzzlePart = show secondsToWaitMessageAppearance
 
-          solvePuzzle input = "First part solution is: " ++ solveFirstPuzzlePart input ++ "\n"
-               -- ++ "Second part solution is: " ++ solveSecondPuzzlePart input
