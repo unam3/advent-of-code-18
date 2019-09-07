@@ -16,13 +16,13 @@ makeFuelCellsXofXGrid' :: KSquare -> SquareSideSize -> GridSerialNumber -> FuelC
 makeFuelCellsXofXGrid' kSquare squareSideSize gridSerialNumber fuelCellsGrid x y = case x == 300 - squareSideSize + 2 of
     True -> fuelCellsGrid
     False -> case y == 300 - squareSideSize + 1 of
-        True  -> makeFuelCellsXofXGrid' kSquare squareSideSize gridSerialNumber newFuelCellsGrid (x+1) 1
-        False -> makeFuelCellsXofXGrid' kSquare squareSideSize gridSerialNumber newFuelCellsGrid x (y+1)
+        True  -> makeFuelCellsXofXGrid'' (x+1) 1
+        False -> makeFuelCellsXofXGrid'' x (y+1)
         where
+            makeFuelCellsXofXGrid'' = makeFuelCellsXofXGrid' kSquare squareSideSize gridSerialNumber newFuelCellsGrid
             newFuelCellsGrid = fuelCellsGrid Seq.|> (x, y, totalPower)
             getCellPowerLevel' = getCellPowerLevel gridSerialNumber
             totalPower = sum $ fmap (getCellPowerLevel' . tieToXY) kSquare
-            --totalPower = List.foldl1 ((+) . getCellPowerLevel') tiedToXY
             tieToXY = (\(kx, ky) -> (x + kx, y + ky))
 
 makeFuelCellsXofXGrid :: GridSerialNumber -> SquareSideSize -> FuelCellsXofXGrid
@@ -53,7 +53,6 @@ sortByPower' :: (SquareSideSize, (Coordinate, Coordinate, CellPowerLevel)) ->
 sortByPower' (_, a@(_, _, _)) (_, b@(_, _, _)) = sortByPower a b
 
 getLargestTotalPowerCell :: FuelCellsXofXGrid -> (Coordinate, Coordinate, CellPowerLevel)
---getLargestTotalPowerCell = Seq.take 3 . Seq.sortBy sortByPower
 getLargestTotalPowerCell fuelCellsXofXGrid = case Seq.lookup 0 $ Seq.sortBy sortByPower fuelCellsXofXGrid of
     Just triple -> triple
     Nothing -> (0, 0, 0)
@@ -80,17 +79,15 @@ main = mainWith solvePuzzle
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          solvePuzzle input = --"First part solution is: " ++ firstPuzzlePart where
-             -- ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
-            "Second part solution is: " ++ secondPuzzlePart where
-                --firstPuzzlePart =
-                --   show . getXYCoords . getLargestTotalPowerCell $ makeFuelCellsXofXGrid (parseInput input) 3
+          solvePuzzle input = "First part solution is: " ++ firstPuzzlePart
+              ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
+                firstPuzzlePart =
+                   show . getXYCoords . getLargestTotalPowerCell $ makeFuelCellsXofXGrid (parseInput input) 3
                 secondPuzzlePart =
                     show .
-                        --makeFuelCellsXofXGrid (parseInput input) squareSideSizes
                         arrangeSecondSolutionString .
                         head . List.sortBy sortByPower' $
                         zip squareSideSizes $
                         fmap (getLargestTotalPowerCell . makeFuelCellsXofXGrid gridSerialNumber) squareSideSizes
                 gridSerialNumber = parseInput input
-                squareSideSizes = [50]
+                squareSideSizes = [1..300]
