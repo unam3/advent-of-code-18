@@ -4,12 +4,10 @@ import qualified Data.List as List
 
 type LeftmostPotNumber = Int
 type State = String
-type SpreadPattern = (String, Char)
+type SpreadPattern = State
 
 parseSpreadPatterns :: String -> SpreadPattern
-parseSpreadPatterns string = (pattern, result) where
-    (pattern, rest) = splitAt 5 string
-    result = last rest
+parseSpreadPatterns = take 5
 
 parseInput :: String -> (State, LeftmostPotNumber, [SpreadPattern])
 parseInput input = (initialState, initialLeftmostPotNumber, spreadPatternsList) where
@@ -26,8 +24,8 @@ makeDotsString dotsToAddNumber = take dotsToAddNumber $ repeat '.'
 
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
-fillStateForMatching state leftmostPotNumber = (filledState, newLeftmostPotNumber) where
-    filledState = dotsToAddToHead ++ state ++ dotsToAddToTail
+fillStateForMatching state leftmostPotNumber = filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber) where
+    filledState = dotsToAddToHead `seq` dotsToAddToTail `seq` dotsToAddToHead ++ state ++ dotsToAddToTail
     newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber
     dotsToAddToHeadNumber = countDots $ take 5 state
     dotsToAddToHead = makeDotsString dotsToAddToHeadNumber
@@ -46,13 +44,18 @@ growGeneration' :: State -> [SpreadPattern] -> IsFirstCall -> State
 growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
     let {
         restGrown = growGeneration' (drop 1 state) spreadPatterns False;
-        hasSpreadPatternMatch = any ((flip List.isPrefixOf $ state) . fst) spreadPatterns;
+        isPrefixOfState spreadPattern = List.isPrefixOf spreadPattern state;
+        hasSpreadPatternMatch = any isPrefixOfState spreadPatterns;
         whatToPut = if hasSpreadPatternMatch then '#' else '.'
-    } in (if isFirstCall then l1:l:whatToPut:[] else [whatToPut]) ++ restGrown
+    } in hasSpreadPatternMatch `seq` restGrown `seq` (if isFirstCall then l1:l:whatToPut:[] else [whatToPut]) ++ restGrown
 
 growGeneration' (_:_:r:r1:[]) _ _ = r:r1:[]
 growGeneration' state _ _ = state
 
+sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
+sumPotsWithPlantAfterNGenerations string numberOfGenerations =
+    sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+        (state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
@@ -68,11 +71,9 @@ main = mainWith solvePuzzle
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          solvePuzzle input = "First part solution is: " ++ firstPuzzlePart where
-              -- ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
+          solvePuzzle input = "First part solution is: " ++ firstPuzzlePart
+              ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
                 firstPuzzlePart =
-                    --show $ parseInput input
-                    show . sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
-                        (state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput input) !! 20
-                --secondPuzzlePart =
-                --    show .
+                    show $ sumPotsWithPlantAfterNGenerations input 20
+                secondPuzzlePart = --parseInput input
+                    show $ sumPotsWithPlantAfterNGenerations input 5000
