@@ -21,13 +21,14 @@ makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber '.'
 
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
-fillStateForMatching state leftmostPotNumber = dotsToAddToHead `seq` dotsToAddToTail `seq` filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber) where
-    filledState = List.concat [dotsToAddToHead, state, dotsToAddToTail]
-    newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber
-    dotsToAddToHeadNumber = countDots $ take 5 state
-    dotsToAddToHead = makeDotsString dotsToAddToHeadNumber
-    dotsToAddToTailNumber = countDots . reverse $ drop (length state - 5) state
-    dotsToAddToTail = makeDotsString dotsToAddToTailNumber
+fillStateForMatching state leftmostPotNumber = let {
+        filledState = List.concat [dotsToAddToHead, state, dotsToAddToTail];
+        newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber;
+        dotsToAddToHeadNumber = countDots $ take 5 state;
+        dotsToAddToHead = makeDotsString dotsToAddToHeadNumber;
+        dotsToAddToTailNumber = countDots . reverse $ drop (length state - 5) state;
+        dotsToAddToTail = makeDotsString dotsToAddToTailNumber
+    } in dotsToAddToHead `seq` dotsToAddToTail `seq` filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber)
 
 type IsFirstCall = Bool
 
@@ -39,6 +40,7 @@ stripExcessiveDots state = state
 
 growGeneration :: (State, LeftmostPotNumber, [SpreadPattern]) -> (State, LeftmostPotNumber, [SpreadPattern])
 growGeneration (state, leftmostPotNumber, spreadPatterns) =
+    --newState `seq` leftmostPotNumber' `seq` spreadPatterns `seq` (newState, leftmostPotNumber', spreadPatterns) where
     (newState, leftmostPotNumber', spreadPatterns) where
         newState = stripExcessiveDots $ growGeneration' filledState spreadPatterns True
         (filledState, leftmostPotNumber') = fillStateForMatching state leftmostPotNumber
@@ -57,12 +59,18 @@ growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
 growGeneration' [_, _, r, r1] _ _ = [r, r1]
 growGeneration' state _ _ = state
 
---sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
-sumPotsWithPlantAfterNGenerations :: String -> Int -> State
+applyNtimes :: (Num n, Ord n) => n -> (a -> a) -> a -> a
+applyNtimes 1 f x = f x
+applyNtimes n f x = f (applyNtimes (n-1) f x)
+
+sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
+--sumPotsWithPlantAfterNGenerations :: String -> Int -> State
 sumPotsWithPlantAfterNGenerations string numberOfGenerations =
-    --sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
-    state where
+    sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+    --state where
         (state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
+        --(state, leftmostPotNumber, _) = triple `seq` applyNtimes numberOfGenerations growGeneration triple where
+        --    triple = parseInput string
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
@@ -83,5 +91,5 @@ main = mainWith solvePuzzle
                 firstPuzzlePart =
                     show $ sumPotsWithPlantAfterNGenerations input 20
                 secondPuzzlePart = --parseInput input
-                    show $ sumPotsWithPlantAfterNGenerations input 50000
+                    show $ sumPotsWithPlantAfterNGenerations input 500
                     --show $ sumPotsWithPlantAfterNGenerations input 50000000000
