@@ -6,26 +6,23 @@ type LeftmostPotNumber = Int
 type State = String
 type SpreadPattern = State
 
-parseSpreadPatterns :: String -> SpreadPattern
-parseSpreadPatterns = take 5
-
 parseInput :: String -> (State, LeftmostPotNumber, [SpreadPattern])
 parseInput input = (initialState, initialLeftmostPotNumber, spreadPatternsList) where
     (initialStateStringList, rest) = List.splitAt 1 $ lines input
     initialLeftmostPotNumber = 0
     initialState = last . words $ head initialStateStringList
-    spreadPatternsList = fmap parseSpreadPatterns . filter (List.isSuffixOf "#") $ drop 1 rest
+    spreadPatternsList = fmap (take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
 
 countDots :: State -> Int
-countDots state = 5 - (length $ takeWhile (== '.') state)
+countDots state = 5 - length (takeWhile (== '.') state)
 
 makeDotsString :: Int -> State
-makeDotsString dotsToAddNumber = take dotsToAddNumber $ repeat '.'
+makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber '.'
 
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
-fillStateForMatching state leftmostPotNumber = filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber) where
-    filledState = dotsToAddToHead `seq` dotsToAddToTail `seq` dotsToAddToHead ++ state ++ dotsToAddToTail
+fillStateForMatching state leftmostPotNumber = dotsToAddToHead `seq` dotsToAddToTail `seq` filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber) where
+    filledState = List.concat [dotsToAddToHead, state, dotsToAddToTail]
     newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber
     dotsToAddToHeadNumber = countDots $ take 5 state
     dotsToAddToHead = makeDotsString dotsToAddToHeadNumber
@@ -34,10 +31,16 @@ fillStateForMatching state leftmostPotNumber = filledState `seq` newLeftmostPotN
 
 type IsFirstCall = Bool
 
+stripExcessiveDots :: State -> State
+stripExcessiveDots state@('.':'.':'.':'.':'.':'.':_) = drop (numberOfDots - 5) state where
+    numberOfDots = length $ takeWhile (== '.') state
+stripExcessiveDots state = state
+
+
 growGeneration :: (State, LeftmostPotNumber, [SpreadPattern]) -> (State, LeftmostPotNumber, [SpreadPattern])
 growGeneration (state, leftmostPotNumber, spreadPatterns) =
     (newState, leftmostPotNumber', spreadPatterns) where
-        newState = growGeneration' filledState spreadPatterns True
+        newState = stripExcessiveDots $ growGeneration' filledState spreadPatterns True
         (filledState, leftmostPotNumber') = fillStateForMatching state leftmostPotNumber
 
 growGeneration' :: State -> [SpreadPattern] -> IsFirstCall -> State
@@ -47,14 +50,18 @@ growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
         isPrefixOfState spreadPattern = List.isPrefixOf spreadPattern state;
         hasSpreadPatternMatch = any isPrefixOfState spreadPatterns;
         whatToPut = if hasSpreadPatternMatch then '#' else '.'
-    } in hasSpreadPatternMatch `seq` restGrown `seq` (if isFirstCall then l1:l:whatToPut:[] else [whatToPut]) ++ restGrown
+    } in hasSpreadPatternMatch `seq` restGrown `seq` if isFirstCall
+        then l1:l:whatToPut:restGrown
+        else whatToPut:restGrown
 
-growGeneration' (_:_:r:r1:[]) _ _ = r:r1:[]
+growGeneration' [_, _, r, r1] _ _ = [r, r1]
 growGeneration' state _ _ = state
 
-sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
+--sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
+sumPotsWithPlantAfterNGenerations :: String -> Int -> State
 sumPotsWithPlantAfterNGenerations string numberOfGenerations =
-    sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+    --sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+    state where
         (state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
 
 
@@ -76,4 +83,5 @@ main = mainWith solvePuzzle
                 firstPuzzlePart =
                     show $ sumPotsWithPlantAfterNGenerations input 20
                 secondPuzzlePart = --parseInput input
-                    show $ sumPotsWithPlantAfterNGenerations input 5000
+                    show $ sumPotsWithPlantAfterNGenerations input 50000
+                    --show $ sumPotsWithPlantAfterNGenerations input 50000000000
