@@ -1,5 +1,6 @@
 import System.Environment (getArgs)
 import qualified Data.List as List
+import Data.Foldable (foldr')
 --import qualified Data.Sequence as Seq
 
 type LeftmostPotNumber = Int
@@ -22,37 +23,45 @@ makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber '.'
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
 fillStateForMatching state leftmostPotNumber = let {
-        filledState = List.concat [dotsToAddToHead, state, dotsToAddToTail];
+        --filledState = dotsToAddToHead ++ state ++ dotsToAddToTail;
+        filledState = statePart `seq` statePart' `seq` statePart';
+        statePart = dotsToAddToHead ++ state;
+        statePart' = if null dotsToAddToTail then statePart else statePart ++ dotsToAddToTail;
         newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber;
-        dotsToAddToHeadNumber = countDots $ take 5 state;
+        first5 = take 5 state;
+        dotsToAddToHeadNumber = countDots first5;
         dotsToAddToHead = makeDotsString dotsToAddToHeadNumber;
-        dotsToAddToTailNumber = countDots . reverse $ drop (length state - 5) state;
+        last5 = drop (length state - 5) state;
+        dotsToAddToTailNumber = countDots $ reverse last5;
         dotsToAddToTail = makeDotsString dotsToAddToTailNumber
-    } in dotsToAddToHead `seq` dotsToAddToTail `seq` filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber)
+    } in first5 `seq` dotsToAddToHeadNumber `seq` dotsToAddToHead `seq` last5 `seq` dotsToAddToTailNumber `seq` dotsToAddToTail `seq` state `seq` filledState `seq` newLeftmostPotNumber `seq` (filledState, newLeftmostPotNumber)
 
 type IsFirstCall = Bool
 
-stripExcessiveDots :: State -> State
-stripExcessiveDots state@('.':'.':'.':'.':'.':'.':_) = drop (numberOfDots - 5) state where
+stripExcessiveDots :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
+stripExcessiveDots state@('.':'.':'.':'.':'.':'.':_) leftmostPotNumber = newState `seq` newLeftmostPotNumber `seq` (newState, newLeftmostPotNumber) where
+    newState = drop delta state
+    newLeftmostPotNumber = leftmostPotNumber + delta
+    delta = numberOfDots - 5
     numberOfDots = length $ takeWhile (== '.') state
-stripExcessiveDots state = state
+stripExcessiveDots state leftmostPotNumber = (state, leftmostPotNumber)
 
 
 growGeneration :: (State, LeftmostPotNumber, [SpreadPattern]) -> (State, LeftmostPotNumber, [SpreadPattern])
 growGeneration (state, leftmostPotNumber, spreadPatterns) =
-    --newState `seq` leftmostPotNumber' `seq` spreadPatterns `seq` (newState, leftmostPotNumber', spreadPatterns) where
-    (newState, leftmostPotNumber', spreadPatterns) where
-        newState = stripExcessiveDots $ growGeneration' filledState spreadPatterns True
+    filledState `seq` leftmostPotNumber' `seq` (newState, leftmostPotNumber'', spreadPatterns) where
+        (newState, leftmostPotNumber'') = stripExcessiveDots (growGeneration' filledState spreadPatterns True) leftmostPotNumber'
         (filledState, leftmostPotNumber') = fillStateForMatching state leftmostPotNumber
 
 growGeneration' :: State -> [SpreadPattern] -> IsFirstCall -> State
 growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
     let {
-        restGrown = growGeneration' (drop 1 state) spreadPatterns False;
+        restGrown = growGeneration' tail' spreadPatterns False;
+        tail' = drop 1 state;
         isPrefixOfState spreadPattern = List.isPrefixOf spreadPattern state;
         hasSpreadPatternMatch = any isPrefixOfState spreadPatterns;
         whatToPut = if hasSpreadPatternMatch then '#' else '.'
-    } in hasSpreadPatternMatch `seq` restGrown `seq` if isFirstCall
+    } in whatToPut `seq` isPrefixOfState `seq` hasSpreadPatternMatch `seq` tail `seq` restGrown `seq` if isFirstCall
         then l1:l:whatToPut:restGrown
         else whatToPut:restGrown
 
@@ -63,14 +72,16 @@ applyNtimes :: (Num n, Ord n) => n -> (a -> a) -> a -> a
 applyNtimes 1 f x = f x
 applyNtimes n f x = f (applyNtimes (n-1) f x)
 
-sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
---sumPotsWithPlantAfterNGenerations :: String -> Int -> State
+--sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
+sumPotsWithPlantAfterNGenerations :: String -> Int -> State
+--sumPotsWithPlantAfterNGenerations :: String -> Int -> (State, LeftmostPotNumber)
 sumPotsWithPlantAfterNGenerations string numberOfGenerations =
-    sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
-    --state where
-        (state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
-        --(state, leftmostPotNumber, _) = triple `seq` applyNtimes numberOfGenerations growGeneration triple where
-        --    triple = parseInput string
+    --sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+    --(state, leftmostPotNumber) where
+    state where
+        --(state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
+        (state, leftmostPotNumber, _) = triple `seq` applyNtimes numberOfGenerations growGeneration triple
+        triple = parseInput string
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
@@ -86,10 +97,12 @@ main = mainWith solvePuzzle
                 [input, output] -> interactWith f input output
                 _ -> putStrLn "error: exactly two arguments needed"
 
-          solvePuzzle input = "First part solution is: " ++ firstPuzzlePart
-              ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
-                firstPuzzlePart =
-                    show $ sumPotsWithPlantAfterNGenerations input 20
+          solvePuzzle input = 
+              --"First part solution is: " ++ firstPuzzlePart
+              -- ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
+              "Second part solution is: " ++ secondPuzzlePart where
+                --firstPuzzlePart =
+                --    show $ sumPotsWithPlantAfterNGenerations input 20
                 secondPuzzlePart = --parseInput input
-                    show $ sumPotsWithPlantAfterNGenerations input 500
+                    show $ sumPotsWithPlantAfterNGenerations input 50000
                     --show $ sumPotsWithPlantAfterNGenerations input 50000000000
