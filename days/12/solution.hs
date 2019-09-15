@@ -4,21 +4,25 @@ import Data.Foldable (foldr')
 --import qualified Data.Sequence as Seq
 
 type LeftmostPotNumber = Int
-type State = String
+type State = [Bool]
 type SpreadPattern = State
+
+stateToBool :: Char -> Bool
+stateToBool '#' = True
+stateToBool _ = False
 
 parseInput :: String -> (State, LeftmostPotNumber, [SpreadPattern])
 parseInput input = (initialState, initialLeftmostPotNumber, spreadPatternsList) where
     (initialStateStringList, rest) = List.splitAt 1 $ lines input
     initialLeftmostPotNumber = 0
-    initialState = last . words $ head initialStateStringList
-    spreadPatternsList = fmap (take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
+    initialState = fmap stateToBool . last . words $ head initialStateStringList
+    spreadPatternsList = fmap ((fmap stateToBool) . take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
 
 countDots :: State -> Int
-countDots state = 5 - length (takeWhile (== '.') state)
+countDots state = 5 - length (takeWhile (== False) state)
 
 makeDotsString :: Int -> State
-makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber '.'
+makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber False
 
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
@@ -39,11 +43,11 @@ fillStateForMatching state leftmostPotNumber = let {
 type IsFirstCall = Bool
 
 stripExcessiveDots :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
-stripExcessiveDots state@('.':'.':'.':'.':'.':'.':_) leftmostPotNumber = newState `seq` newLeftmostPotNumber `seq` (newState, newLeftmostPotNumber) where
+stripExcessiveDots state@(False:False:False:False:False:False:_) leftmostPotNumber = newState `seq` newLeftmostPotNumber `seq` (newState, newLeftmostPotNumber) where
     newState = drop delta state
     newLeftmostPotNumber = leftmostPotNumber + delta
     delta = numberOfDots - 5
-    numberOfDots = length $ takeWhile (== '.') state
+    numberOfDots = length $ takeWhile (== False) state
 stripExcessiveDots state leftmostPotNumber = (state, leftmostPotNumber)
 
 
@@ -60,7 +64,7 @@ growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
         tail' = drop 1 state;
         isPrefixOfState spreadPattern = List.isPrefixOf spreadPattern state;
         hasSpreadPatternMatch = any isPrefixOfState spreadPatterns;
-        whatToPut = if hasSpreadPatternMatch then '#' else '.'
+        whatToPut = if hasSpreadPatternMatch then True else False
     } in whatToPut `seq` isPrefixOfState `seq` hasSpreadPatternMatch `seq` tail `seq` restGrown `seq` if isFirstCall
         then l1:l:whatToPut:restGrown
         else whatToPut:restGrown
@@ -76,7 +80,7 @@ applyNtimes n f x = f (applyNtimes (n-1) f x)
 sumPotsWithPlantAfterNGenerations :: String -> Int -> State
 --sumPotsWithPlantAfterNGenerations :: String -> Int -> (State, LeftmostPotNumber)
 sumPotsWithPlantAfterNGenerations string numberOfGenerations =
-    --sum . fmap fst . filter ((/= '.') . snd) $ zip [leftmostPotNumber..] state where
+    --sum . fmap fst . filter ((/= False) . snd) $ zip [leftmostPotNumber..] state where
     --(state, leftmostPotNumber) where
     state where
         --(state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
@@ -104,5 +108,5 @@ main = mainWith solvePuzzle
                 --firstPuzzlePart =
                 --    show $ sumPotsWithPlantAfterNGenerations input 20
                 secondPuzzlePart = --parseInput input
-                    show $ sumPotsWithPlantAfterNGenerations input 50000
-                    --show $ sumPotsWithPlantAfterNGenerations input 50000000000
+                    --show $ sumPotsWithPlantAfterNGenerations input 50000
+                    show $ sumPotsWithPlantAfterNGenerations input 50000000000
