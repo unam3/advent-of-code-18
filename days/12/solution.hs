@@ -17,8 +17,8 @@ parseInput :: String -> (State, LeftmostPotNumber, [SpreadPattern])
 parseInput input =
     (initialState, initialLeftmostPotNumber, spreadPatternsList) where
     (initialStateStringList, rest) = List.splitAt 1 $ lines input
-    !initialState = fmap stateToBool . last . words $ head initialStateStringList
-    !initialLeftmostPotNumber = 0
+    initialState = fmap stateToBool . last . words $ head initialStateStringList
+    initialLeftmostPotNumber = 0
     !spreadPatternsList = fmap ((fmap stateToBool) . take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
 
 countDots :: State -> Int
@@ -30,11 +30,11 @@ makeDotsString dotsToAddNumber = List.replicate dotsToAddNumber False
 -- add dots to the left and to the right if less than 5
 fillStateForMatching :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
 fillStateForMatching state leftmostPotNumber = let {
-        !filledState = dotsToAddToHead List.++ state;
-        newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber;
         first5 = take 5 state;
         dotsToAddToHeadNumber = countDots first5;
-        !dotsToAddToHead = makeDotsString dotsToAddToHeadNumber;
+        dotsToAddToHead = makeDotsString dotsToAddToHeadNumber;
+        filledState = dotsToAddToHead List.++ state;
+        newLeftmostPotNumber = leftmostPotNumber - dotsToAddToHeadNumber;
     } in (filledState, newLeftmostPotNumber)
 
 type IsFirstCall = Bool
@@ -42,10 +42,10 @@ type IsFirstCall = Bool
 stripExcessiveDots :: State -> LeftmostPotNumber -> (State, LeftmostPotNumber)
 stripExcessiveDots state@(False:False:False:False:False:False:_) leftmostPotNumber =
         (newState, newLeftmostPotNumber) where
+    !numberOfDots = length $ takeWhile (== False) state
+    !delta = numberOfDots - 5
     !newState = drop delta state
     !newLeftmostPotNumber = leftmostPotNumber + delta
-    !delta = numberOfDots - 5
-    !numberOfDots = length $ takeWhile (== False) state
 
 stripExcessiveDots state leftmostPotNumber = (state, leftmostPotNumber)
 
@@ -53,19 +53,16 @@ stripExcessiveDots state leftmostPotNumber = (state, leftmostPotNumber)
 growGeneration :: (State, LeftmostPotNumber, [SpreadPattern]) -> (State, LeftmostPotNumber, [SpreadPattern])
 growGeneration (state, leftmostPotNumber, spreadPatterns) =
     newState `seq` leftmostPotNumber'' `seq` (newState, leftmostPotNumber'', spreadPatterns) where
-
         (newState, leftmostPotNumber'') = stripExcessiveDots newGeneration leftmostPotNumber'
-        
         newGeneration = filledState `seq` growGeneration' filledState spreadPatterns True
-
         (filledState, leftmostPotNumber') = fillStateForMatching state leftmostPotNumber
 
 growGeneration' :: State -> [SpreadPattern] -> IsFirstCall -> State
 growGeneration' state@(l1:l:_:_:_:_) spreadPatterns isFirstCall =
     let {
         !restGrown = growGeneration' tail' spreadPatterns False;
-        !tail' = drop 1 state;
         isPrefixOfState spreadPattern = List.isPrefixOf spreadPattern state;
+        !tail' = drop 1 state;
         !whatToPut = any isPrefixOfState spreadPatterns;
     } in if isFirstCall
         then l1:l:whatToPut:restGrown
@@ -93,7 +90,7 @@ growGeneration' state _ _ = state
 
 applyNtimes :: (Num n, Ord n) => n -> (a -> a) -> a -> a
 applyNtimes 1 f x = f x
-applyNtimes n f x = f (applyNtimes (n-1) f x)
+applyNtimes n f !x = f (applyNtimes (n-1) f x)
 
 --sumPotsWithPlantAfterNGenerations :: String -> Int -> Int
 sumPotsWithPlantAfterNGenerations :: String -> Int -> State
