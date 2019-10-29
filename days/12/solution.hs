@@ -19,7 +19,7 @@ parseInput input =
     (initialStateStringList, rest) = List.splitAt 1 $ lines input
     initialState = fmap stateToBool . last . words $ head initialStateStringList
     initialLeftmostPotNumber = 0
-    !spreadPatternsList = fmap ((fmap stateToBool) . take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
+    !spreadPatternsList = fmap (fmap stateToBool . take 5) . filter (List.isSuffixOf "#") $ drop 1 rest
 
 countDots :: State -> Int
 countDots state = 5 - length (takeWhile (== False) state)
@@ -102,7 +102,7 @@ sumPotsWithPlantAfterNGenerations string numberOfGenerations =
         --(state, leftmostPotNumber, _) = (List.iterate growGeneration $ parseInput string) !! numberOfGenerations
         --(state, leftmostPotNumber, _) = applyNtimes numberOfGenerations growGeneration triple
         (state, _, _) = applyNtimes numberOfGenerations growGeneration triple
-        triple = parseInput $ string
+        triple = parseInput string
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
