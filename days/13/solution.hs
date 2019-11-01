@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
+import Prelude hiding (Left, Right)
 import System.Environment (getArgs)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
@@ -15,13 +16,15 @@ data TrackElement = V  |
 type Track = Map.Map TrackElementPosition TrackElement
 
 
---type CartPosition = TrackElementPosition
+type CartPosition = TrackElementPosition
 
---data IntersectionTurn = Left | Straight | Right
+data IntersectionTurn = TurnLeft | GoStraight | TurnRight deriving Show
 
---type Carts = [(CartPosition, IntersectionTurn)]
+data HeadingDirection = Up | Down | Left | Right deriving Show
 
---data CartsOnTracks = CartsOnTracks Track Carts
+type Carts = [(CartPosition, IntersectionTurn, HeadingDirection)]
+
+data CartsOnTracks = CartsOnTracks Track Carts deriving Show
 
 
 charToTrackElement :: Char -> TrackElement
@@ -34,36 +37,54 @@ charToTrackElement _  = undefined
 
 insertIntoTrack :: Track -> (TrackElementPosition, Char) -> Track
 insertIntoTrack track (_, ' ') = track
--- related to cart direction
 insertIntoTrack track (k, '^') = insertIntoTrack track (k, '|')
 insertIntoTrack track (k, 'v') = insertIntoTrack track (k, '|')
 insertIntoTrack track (k, '<') = insertIntoTrack track (k, '-')
 insertIntoTrack track (k, '>') = insertIntoTrack track (k, '-')
---
 insertIntoTrack track (k, v) =
     let {
         mappedV = charToTrackElement v;
     } in Map.insert k mappedV track
 
+processCartInfo :: Carts -> (TrackElementPosition, Char) -> Carts
+processCartInfo carts (k, '^') = (k, TurnLeft, Up):carts
+processCartInfo carts (k, 'v') = (k, TurnLeft, Down):carts
+processCartInfo carts (k, '>') = (k, TurnLeft, Right):carts
+processCartInfo carts (k, '<') = (k, TurnLeft, Left):carts
+processCartInfo carts _ = carts
 
-processString :: (Int, [(Int, Char)]) -> Track
+processString' :: CartsOnTracks -> (TrackElementPosition, Char) -> CartsOnTracks
+processString' (CartsOnTracks track carts) (k, v) =
+    let {
+        newTrack = insertIntoTrack track (k, v);
+        newCarts = processCartInfo carts (k, v);
+    } in CartsOnTracks newTrack newCarts
+
+processString :: (Int, [(Int, Char)]) -> CartsOnTracks
 processString (y, xAndCharPairsList) = 
     let {
-        initialTrack = Map.empty :: Track;
-    } in List.foldl' insertIntoTrack initialTrack $
+        initialCartsOnTracks = CartsOnTracks (Map.empty :: Track) ([] :: Carts);
+    } in List.foldl' processString' initialCartsOnTracks $
         fmap (\(x, v) -> ((x, y), v)) xAndCharPairsList
 
-createTrack :: [String] -> Track
+mergeState :: CartsOnTracks -> CartsOnTracks -> CartsOnTracks
+mergeState (CartsOnTracks track carts) (CartsOnTracks track' carts') =
+    let {
+        newTrack = Map.union track track';
+        newCarts = carts List.++ carts';
+    } in CartsOnTracks newTrack newCarts
+
+createTrack :: [String] -> CartsOnTracks
 createTrack strings =
     let {
         numbersList = [0..] :: [Int];
-    } in List.foldl1 Map.union $ fmap processString (zip numbersList $ fmap (zip numbersList) strings)
+    } in List.foldl1 mergeState $ fmap processString (zip numbersList $ fmap (zip numbersList) strings)
 
-parseInput :: String -> Track
+parseInput :: String -> CartsOnTracks
 parseInput = createTrack . lines
 
 
-getFirstCrashLocation :: String -> Track
+getFirstCrashLocation :: String -> CartsOnTracks
 getFirstCrashLocation = parseInput
 
 
