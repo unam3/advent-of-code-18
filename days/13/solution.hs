@@ -5,7 +5,7 @@ import System.Environment (getArgs)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
 
-type TrackElementPosition = (Int, Int)
+type Position = (Int, Int)
 
 data TrackElement = V  |
                     H  |
@@ -13,10 +13,8 @@ data TrackElement = V  |
                     BS |
                     I deriving (Show, Eq)
 
-type Track = Map.Map TrackElementPosition TrackElement
+type Track = Map.Map Position TrackElement
 
-
-type CartPosition = TrackElementPosition
 
 data IntersectionTurn = TurnLeft |
                         GoStraight |
@@ -27,7 +25,7 @@ data HeadingDirection = Up |
                         Left |
                         Right deriving (Show, Eq)
 
-type Cart = (CartPosition, IntersectionTurn, HeadingDirection)
+type Cart = (Position, IntersectionTurn, HeadingDirection)
 type Carts = [Cart]
 
 data CartsOnTracks = CartsOnTracks Track Carts deriving Show
@@ -41,7 +39,7 @@ charToTrackElement '\\' = BS
 charToTrackElement '+'  = I
 charToTrackElement _  = undefined
 
-insertIntoTrack :: Track -> (TrackElementPosition, Char) -> Track
+insertIntoTrack :: Track -> (Position, Char) -> Track
 insertIntoTrack track (_, ' ') = track
 insertIntoTrack track (k, '^') = insertIntoTrack track (k, '|')
 insertIntoTrack track (k, 'v') = insertIntoTrack track (k, '|')
@@ -52,14 +50,14 @@ insertIntoTrack track (k, v) =
         mappedV = charToTrackElement v;
     } in Map.insert k mappedV track
 
-processCartInfo :: Carts -> (TrackElementPosition, Char) -> Carts
+processCartInfo :: Carts -> (Position, Char) -> Carts
 processCartInfo carts (k, '^') = (k, TurnLeft, Up):carts
 processCartInfo carts (k, 'v') = (k, TurnLeft, Down):carts
 processCartInfo carts (k, '>') = (k, TurnLeft, Right):carts
 processCartInfo carts (k, '<') = (k, TurnLeft, Left):carts
 processCartInfo carts _ = carts
 
-processString' :: CartsOnTracks -> (TrackElementPosition, Char) -> CartsOnTracks
+processString' :: CartsOnTracks -> (Position, Char) -> CartsOnTracks
 processString' (CartsOnTracks track carts) (k, v) =
     let {
         newTrack = insertIntoTrack track (k, v);
@@ -94,8 +92,8 @@ sortCarts =
     List.sortBy (\((_, y), _, _) ((_, y1), _, _) -> compare y y1)
 
 
-getNextCartPosition :: TrackElement -> HeadingDirection -> CartPosition -> CartPosition
-getNextCartPosition trackElement headingDirection (x, y) =
+getNextPosition :: TrackElement -> HeadingDirection -> Position -> Position
+getNextPosition trackElement headingDirection (x, y) =
     case trackElement of
         V -> if headingDirection == Up
              then (x, y - 1)
@@ -152,14 +150,14 @@ moveCart :: Cart -> Track -> Cart
 moveCart (cartPosition, intersectionTurn, headingDirection) track =
     let {
         trackElement = track Map.! cartPosition;
-        newCartPosition = getNextCartPosition trackElement headingDirection cartPosition;
+        newPosition = getNextPosition trackElement headingDirection cartPosition;
         newIntersectionTurn =
             if trackElement == I
             then getNextIntersectionTurn intersectionTurn
             else intersectionTurn;
-        nextTrackElement = track Map.! newCartPosition;
+        nextTrackElement = track Map.! newPosition;
         newHeadingDirection = getNextHeadingDirection nextTrackElement intersectionTurn headingDirection;
-    } in (newCartPosition, newIntersectionTurn, newHeadingDirection) 
+    } in (newPosition, newIntersectionTurn, newHeadingDirection) 
 
 moveCarts :: CartsOnTracks -> CartsOnTracks
 moveCarts (CartsOnTracks track carts) =
@@ -172,8 +170,28 @@ parseInput :: String -> CartsOnTracks
 parseInput = createTrack . lines
 
 
-getFirstCrashLocation :: String -> CartsOnTracks
-getFirstCrashLocation = moveCarts . parseInput
+--cartsHasCrash :: Carts -> Either Carts Position
+collectCrashPositions :: Carts -> [Position]
+collectCrashPositions = Map.keys . Map.filter (> (1 :: Int)) .
+    List.foldl' (\acc (position, _, _) -> Map.insertWith (+) position (1 :: Int) acc) Map.empty
+
+
+moveCartsUntilCrash :: CartsOnTracks -> Position
+moveCartsUntilCrash cartsOnTracks@(CartsOnTracks track _) =
+    let {
+        (CartsOnTracks _ movedCarts) = moveCarts cartsOnTracks;
+        crashPositions = collectCrashPositions movedCarts;
+        hasCartsCrash = not $ null crashPositions;
+    } in if hasCartsCrash
+         then head crashPositions
+         else moveCartsUntilCrash (CartsOnTracks track movedCarts)
+
+
+--getFirstCrashLocation :: String -> Either CartsOnTracks Position
+--getFirstCrashLocation :: String -> CartsOnTracks
+--getFirstCrashLocation = moveCarts . parseInput
+getFirstCrashLocation :: String -> Position
+getFirstCrashLocation = moveCartsUntilCrash . parseInput
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
