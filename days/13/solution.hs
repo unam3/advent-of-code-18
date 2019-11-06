@@ -11,18 +11,24 @@ data TrackElement = V  |
                     H  |
                     S  |
                     BS |
-                    I deriving Show
+                    I deriving (Show, Eq)
 
 type Track = Map.Map TrackElementPosition TrackElement
 
 
 type CartPosition = TrackElementPosition
 
-data IntersectionTurn = TurnLeft | GoStraight | TurnRight deriving Show
+data IntersectionTurn = TurnLeft |
+                        GoStraight |
+                        TurnRight deriving Show
 
-data HeadingDirection = Up | Down | Left | Right deriving Show
+data HeadingDirection = Up |
+                        Down |
+                        Left |
+                        Right deriving (Show, Eq)
 
-type Carts = [(CartPosition, IntersectionTurn, HeadingDirection)]
+type Cart = (CartPosition, IntersectionTurn, HeadingDirection)
+type Carts = [Cart]
 
 data CartsOnTracks = CartsOnTracks Track Carts deriving Show
 
@@ -71,7 +77,8 @@ mergeState :: CartsOnTracks -> CartsOnTracks -> CartsOnTracks
 mergeState (CartsOnTracks track carts) (CartsOnTracks track' carts') =
     let {
         newTrack = Map.union track track';
-        newCarts = carts List.++ carts';
+        newCarts =
+            carts List.++ carts';
     } in CartsOnTracks newTrack newCarts
 
 createTrack :: [String] -> CartsOnTracks
@@ -80,12 +87,93 @@ createTrack strings =
         numbersList = [0..] :: [Int];
     } in List.foldl1 mergeState $ fmap processString (zip numbersList $ fmap (zip numbersList) strings)
 
+
+sortCarts :: Carts -> Carts
+sortCarts =
+    List.sortBy (\((x, _), _, _) ((x1, _), _, _) -> compare x x1) .
+    List.sortBy (\((_, y), _, _) ((_, y1), _, _) -> compare y y1)
+
+
+getNextCartPosition :: TrackElement -> HeadingDirection -> CartPosition -> CartPosition
+getNextCartPosition trackElement headingDirection (x, y) =
+    case trackElement of
+        V -> if headingDirection == Up
+             then (x, y - 1)
+             else (x, y + 1) -- Down
+        H -> if headingDirection == Left
+             then (x - 1, y)
+             else (x + 1, y) -- Right
+        S -> if headingDirection == Left
+             then (x - 1, y)
+             else (x, y - 1) -- Up
+        BS -> if headingDirection == Right
+             then (x + 1, y)
+             else (x, y + 1) -- Down
+        I -> case headingDirection of
+             Right -> (x + 1, y)
+             Down  -> (x, y + 1)
+             Left  -> (x - 1, y)
+             Up    -> (x, y - 1)
+
+getNextIntersectionTurn :: IntersectionTurn -> IntersectionTurn
+getNextIntersectionTurn TurnLeft = GoStraight
+getNextIntersectionTurn GoStraight = TurnRight
+getNextIntersectionTurn _ = TurnLeft
+
+getNextHeadingDirection :: TrackElement -> IntersectionTurn -> HeadingDirection -> HeadingDirection
+getNextHeadingDirection nextTrackElement intersectionTurn headingDirection = 
+    case nextTrackElement of
+        S -> if headingDirection == Down
+             then Left
+             else Up -- going from the Left
+        BS -> if headingDirection == Down
+             then Right
+             else Up -- going from the Right
+        I -> case headingDirection of
+                  Up    -> case intersectionTurn of
+                                TurnLeft   -> Left
+                                GoStraight -> Up
+                                TurnRight  -> Right
+                  Down  -> case intersectionTurn of
+                                TurnLeft   -> Left
+                                GoStraight -> Down
+                                TurnRight  -> Right
+                  Right -> case intersectionTurn of
+                                TurnLeft   -> Up
+                                GoStraight -> Right
+                                TurnRight  -> Down
+                  Left  -> case intersectionTurn of
+                                TurnLeft   -> Down
+                                GoStraight -> Left
+                                TurnRight  -> Up
+        _ -> headingDirection
+
+moveCart :: Cart -> Track -> Cart
+moveCart (cartPosition, intersectionTurn, headingDirection) track =
+    let {
+        trackElement = track Map.! cartPosition;
+        newCartPosition = getNextCartPosition trackElement headingDirection cartPosition;
+        newIntersectionTurn =
+            if trackElement == I
+            then getNextIntersectionTurn intersectionTurn
+            else intersectionTurn;
+        nextTrackElement = track Map.! newCartPosition;
+        newHeadingDirection = getNextHeadingDirection nextTrackElement intersectionTurn headingDirection;
+    } in (newCartPosition, newIntersectionTurn, newHeadingDirection) 
+
+moveCarts :: CartsOnTracks -> CartsOnTracks
+moveCarts (CartsOnTracks track carts) =
+    let {
+        flippedMoveCart = flip moveCart;
+        newCarts = fmap (flippedMoveCart track) $ sortCarts carts;
+    } in CartsOnTracks track newCarts
+
 parseInput :: String -> CartsOnTracks
 parseInput = createTrack . lines
 
 
 getFirstCrashLocation :: String -> CartsOnTracks
-getFirstCrashLocation = parseInput
+getFirstCrashLocation = moveCarts . parseInput
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
