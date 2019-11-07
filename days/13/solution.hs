@@ -92,26 +92,13 @@ sortCarts =
     List.sortBy (\((_, y), _, _) ((_, y1), _, _) -> compare y y1)
 
 
-getNextPosition :: TrackElement -> HeadingDirection -> Position -> Position
-getNextPosition trackElement headingDirection (x, y) =
-    case trackElement of
-        V -> if headingDirection == Up
-             then (x, y - 1)
-             else (x, y + 1) -- Down
-        H -> if headingDirection == Left
-             then (x - 1, y)
-             else (x + 1, y) -- Right
-        S -> if headingDirection == Left
-             then (x - 1, y)
-             else (x, y - 1) -- Up
-        BS -> if headingDirection == Right
-             then (x + 1, y)
-             else (x, y + 1) -- Down
-        I -> case headingDirection of
-             Right -> (x + 1, y)
-             Down  -> (x, y + 1)
-             Left  -> (x - 1, y)
-             Up    -> (x, y - 1)
+getNextPosition :: HeadingDirection -> Position -> Position
+getNextPosition headingDirection (x, y) =
+    case headingDirection of
+         Right -> (x + 1, y)
+         Down  -> (x, y + 1)
+         Left  -> (x - 1, y)
+         _     -> (x, y - 1)
 
 getNextIntersectionTurn :: IntersectionTurn -> IntersectionTurn
 getNextIntersectionTurn TurnLeft = GoStraight
@@ -121,26 +108,30 @@ getNextIntersectionTurn _ = TurnLeft
 getNextHeadingDirection :: TrackElement -> IntersectionTurn -> HeadingDirection -> HeadingDirection
 getNextHeadingDirection nextTrackElement intersectionTurn headingDirection = 
     case nextTrackElement of
-        S -> if headingDirection == Down
-             then Left
-             else Up -- going from the Left
-        BS -> if headingDirection == Down
-             then Right
-             else Up -- going from the Right
+        S -> case headingDirection of
+            Down  -> Left
+            Up    -> Right
+            Right -> Up
+            _     -> Down
+        BS -> case headingDirection of
+            Down  -> Right
+            Up    -> Left
+            Right -> Down
+            _     -> Up
         I -> case headingDirection of
                   Up    -> case intersectionTurn of
                                 TurnLeft   -> Left
                                 GoStraight -> Up
                                 TurnRight  -> Right
                   Down  -> case intersectionTurn of
-                                TurnLeft   -> Left
+                                TurnLeft   -> Right
                                 GoStraight -> Down
-                                TurnRight  -> Right
+                                TurnRight  -> Left
                   Right -> case intersectionTurn of
                                 TurnLeft   -> Up
                                 GoStraight -> Right
                                 TurnRight  -> Down
-                  Left  -> case intersectionTurn of
+                  _     -> case intersectionTurn of
                                 TurnLeft   -> Down
                                 GoStraight -> Left
                                 TurnRight  -> Up
@@ -149,8 +140,8 @@ getNextHeadingDirection nextTrackElement intersectionTurn headingDirection =
 moveCart :: Cart -> Track -> Cart
 moveCart (cartPosition, intersectionTurn, headingDirection) track =
     let {
+        newPosition = getNextPosition headingDirection cartPosition;
         trackElement = track Map.! cartPosition;
-        newPosition = getNextPosition trackElement headingDirection cartPosition;
         newIntersectionTurn =
             if trackElement == I
             then getNextIntersectionTurn intersectionTurn
@@ -192,6 +183,8 @@ moveCartsUntilCrash cartsOnTracks@(CartsOnTracks track _) =
 --getFirstCrashLocation = moveCarts . parseInput
 getFirstCrashLocation :: String -> Position
 getFirstCrashLocation = moveCartsUntilCrash . parseInput
+--getFirstCrashLocation :: String -> CartsOnTracks
+--getFirstCrashLocation = moveCarts . moveCarts . moveCarts . moveCarts . parseInput
 
 
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
