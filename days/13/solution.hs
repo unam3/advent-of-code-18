@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 import Prelude hiding (Left, Right)
 import System.Environment (getArgs)
 import qualified Data.Map.Strict as Map
@@ -140,15 +138,14 @@ getNextHeadingDirection nextTrackElement intersectionTurn headingDirection =
 moveCart :: Cart -> Track -> Cart
 moveCart (cartPosition, intersectionTurn, headingDirection) track =
     let {
-        newPosition = getNextPosition headingDirection cartPosition;
-        trackElement = track Map.! cartPosition;
-        newIntersectionTurn =
-            if trackElement == I
+        nextPosition = getNextPosition headingDirection cartPosition;
+        nextTrackElement = track Map.! nextPosition;
+        nextIntersectionTurn =
+            if nextTrackElement == I
             then getNextIntersectionTurn intersectionTurn
             else intersectionTurn;
-        nextTrackElement = track Map.! newPosition;
-        newHeadingDirection = getNextHeadingDirection nextTrackElement intersectionTurn headingDirection;
-    } in (newPosition, newIntersectionTurn, newHeadingDirection) 
+        nextHeadingDirection = getNextHeadingDirection nextTrackElement intersectionTurn headingDirection;
+    } in (nextPosition, nextIntersectionTurn, nextHeadingDirection) 
 
 moveCarts :: CartsOnTracks -> CartsOnTracks
 moveCarts (CartsOnTracks track carts) =
@@ -167,21 +164,21 @@ collectCrashPositions = Map.keys . Map.filter (> (1 :: Int)) .
     List.foldl' (\acc (position, _, _) -> Map.insertWith (+) position (1 :: Int) acc) Map.empty
 
 
-moveCartsUntilCrash :: CartsOnTracks -> Position
+moveCartsUntilCrash :: CartsOnTracks -> [Position]
 moveCartsUntilCrash cartsOnTracks@(CartsOnTracks track _) =
     let {
         (CartsOnTracks _ movedCarts) = moveCarts cartsOnTracks;
         crashPositions = collectCrashPositions movedCarts;
         hasCartsCrash = not $ null crashPositions;
     } in if hasCartsCrash
-         then head crashPositions
+         then crashPositions
          else moveCartsUntilCrash (CartsOnTracks track movedCarts)
 
 
 --getFirstCrashLocation :: String -> Either CartsOnTracks Position
 --getFirstCrashLocation :: String -> CartsOnTracks
 --getFirstCrashLocation = moveCarts . parseInput
-getFirstCrashLocation :: String -> Position
+getFirstCrashLocation :: String -> [Position]
 getFirstCrashLocation = moveCartsUntilCrash . parseInput
 --getFirstCrashLocation :: String -> CartsOnTracks
 --getFirstCrashLocation = moveCarts . moveCarts . moveCarts . moveCarts . parseInput
@@ -285,7 +282,7 @@ Here is a longer example:
 \-+-/  \-+--^
   \------/   
 
-/---\        
+/---\         5
 |   |  /----\
 | /-+>-+-\  |
 | | |  | |  ^
@@ -307,7 +304,7 @@ Here is a longer example:
   \------/   
 
 /---\        
-|   |  /---<\
+|   |  /---<\ 8
 | /-+--+>\  |
 | | |  | |  |
 \-+-/  \-+--/
