@@ -187,6 +187,9 @@ getFirstCrashLocation = moveCartsUntilCrash . parseInput
 filterCrashedCarts :: Carts -> [Position] -> Carts
 filterCrashedCarts carts crashPositions = List.filter (\(position, _, _) -> List.all (/= position) crashPositions) carts
 
+getOneCartPosition :: CartsOnTracks -> Position
+getOneCartPosition (CartsOnTracks _ carts) = (\(position, _, _) -> position) $ head carts
+
 moveCartsUntilCrashButLastCart :: CartsOnTracks -> Position
 moveCartsUntilCrashButLastCart cartsOnTracks@(CartsOnTracks track _) =
     let {
@@ -195,7 +198,7 @@ moveCartsUntilCrashButLastCart cartsOnTracks@(CartsOnTracks track _) =
         withoutCrashedCarts = filterCrashedCarts movedCarts crashPositions;
         hasOnlyOneCart = 1 == (length withoutCrashedCarts);
     } in if hasOnlyOneCart
-         then (\(position, _, _) -> position) $ head withoutCrashedCarts
+         then getOneCartPosition $ moveCarts (CartsOnTracks track withoutCrashedCarts)
          else moveCartsUntilCrashButLastCart (CartsOnTracks track withoutCrashedCarts)
 
 getLastCartLocation :: String -> Position
