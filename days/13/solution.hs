@@ -184,6 +184,23 @@ getFirstCrashLocation = moveCartsUntilCrash . parseInput
 --getFirstCrashLocation = moveCarts . moveCarts . moveCarts . moveCarts . parseInput
 
 
+filterCrashedCarts :: Carts -> [Position] -> Carts
+filterCrashedCarts carts crashPositions = List.filter (\(position, _, _) -> List.all (/= position) crashPositions) carts
+
+moveCartsUntilCrashButLastCart :: CartsOnTracks -> Position
+moveCartsUntilCrashButLastCart cartsOnTracks@(CartsOnTracks track _) =
+    let {
+        (CartsOnTracks _ movedCarts) = moveCarts cartsOnTracks;
+        crashPositions = collectCrashPositions movedCarts;
+        withoutCrashedCarts = filterCrashedCarts movedCarts crashPositions;
+        hasOnlyOneCart = 1 == (length withoutCrashedCarts);
+    } in if hasOnlyOneCart
+         then (\(position, _, _) -> position) $ head withoutCrashedCarts
+         else moveCartsUntilCrashButLastCart (CartsOnTracks track withoutCrashedCarts)
+
+getLastCartLocation :: String -> Position
+getLastCartLocation = moveCartsUntilCrashButLastCart . parseInput
+
 interactWith :: (String -> String) -> FilePath -> FilePath -> IO ()
 interactWith f inputFile outputFile = do
     input <- readFile inputFile
@@ -198,11 +215,11 @@ main = mainWith solvePuzzle
                 _ -> putStrLn "error: exactly two arguments needed"
 
           solvePuzzle input = 
-              "First part solution is: " ++ firstPuzzlePart where
+              --"First part solution is: " ++ firstPuzzlePart where
               -- ++ "\n" ++ "Second part solution is: " ++ secondPuzzlePart where
-              --"Second part solution is: " List.++ secondPuzzlePart where
-                firstPuzzlePart = show $ getFirstCrashLocation input
-                --secondPuzzlePart =
+              "Second part solution is: " List.++ secondPuzzlePart where
+                --firstPuzzlePart = show $ getFirstCrashLocation input
+                secondPuzzlePart = show $ getLastCartLocation input
 
 {-
 --- Day 13: Mine Cart Madness ---
